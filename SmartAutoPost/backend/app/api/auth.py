@@ -1212,7 +1212,7 @@ def instagram_callback(
     print("==============================")
 
     return RedirectResponse(
-        url=f"https://smartautopost.onrender.com/dashboard?token={access_token}&refresh={refresh_token_value}",
+        url=f"https://samrtautopost.onrender.com/dashboard?token={access_token}&refresh={refresh_token_value}",
         status_code=302
     )
 

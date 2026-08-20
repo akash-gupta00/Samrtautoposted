@@ -39,14 +39,45 @@ function fmtDate(d){
     }
 }
 
-// Converts UTC ISO string to local input value (YYYY-MM-DDTHH:MM)
+// Converts a "YYYY-MM-DDTHH:MM" datetime-local value (assumed to be entered
+// in IST, since that's what fmtDate displays) into a proper UTC ISO string.
+// This does NOT depend on the browser/system timezone — it always treats
+// the input as IST (+05:30) and converts to UTC explicitly.
+function istInputToUTCISOString(localValue){
+    if(!localValue) return null;
+    // localValue looks like "2026-08-20T16:32" (no seconds, no offset)
+    let value = localValue.length === 16 ? localValue + ':00' : localValue;
+    const withOffset = `${value}+05:30`;
+    const d = new Date(withOffset);
+    if(isNaN(d.getTime())) return null;
+    return d.toISOString();
+}
+
+// Converts a UTC/ISO date string into a "YYYY-MM-DDTHH:MM" value expressed
+// in IST, suitable for a <input type="datetime-local"> field. This does NOT
+// depend on the browser/system timezone — it always renders in IST.
 function toLocalInputString(dateStr){
     if(!dateStr) return '';
     let iso = typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+') ? dateStr + 'Z' : dateStr;
     const d = new Date(iso);
     if(isNaN(d.getTime())) return '';
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    // Format the UTC instant into IST wall-clock parts using Intl, then
+    // assemble the datetime-local string manually.
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).formatToParts(d).reduce((acc, p) => {
+        acc[p.type] = p.value;
+        return acc;
+    }, {});
+
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
 async function bootstrap(){
@@ -223,8 +254,7 @@ document.getElementById('editPostForm')?.addEventListener('submit', async e => {
     try{
         let formattedSchedule = null;
         if(editSchedule.value){
-            const localDate = new Date(editSchedule.value);
-            formattedSchedule = localDate.toISOString();
+            formattedSchedule = istInputToUTCISOString(editSchedule.value);
         }
         await api(`/posts/${editPostId.value}`, {
             method: 'PUT',
@@ -302,8 +332,7 @@ document.getElementById('createPostForm')?.addEventListener('submit', async e =>
         const media = mediaIds.value.split(',').map(x => Number(x.trim())).filter(Boolean);
         let formattedSchedule = null;
         if(scheduledAt.value){
-            const localDate = new Date(scheduledAt.value);
-            formattedSchedule = localDate.toISOString();
+            formattedSchedule = istInputToUTCISOString(scheduledAt.value);
         }
         await api('/posts/', {
             method: 'POST',

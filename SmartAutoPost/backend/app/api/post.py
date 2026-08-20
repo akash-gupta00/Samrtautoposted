@@ -174,26 +174,3 @@ def delete_post(
         current_user=current_user,
         request=request,
     )
-    
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
-from app.database.session import get_db
-from app.dependencies.auth import get_current_user
-from app.services.post_service import PostService
-
-router = APIRouter()
-post_service = PostService()
-
-@router.post("/{post_id}/publish")
-def publish_post_now(
-    post_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    return post_service.publish_post(
-        db=db,
-        post_id=post_id,
-        current_user=current_user,
-        request=request
-    )

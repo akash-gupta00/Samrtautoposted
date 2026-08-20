@@ -1,13 +1,14 @@
+import httpx
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.enums import PostStatus
 from app.dependencies.permission import check_user_permission
-
 from app.models.media import Media
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.post import Post
+from app.models.social_account import SocialAccount
 from app.repositories.post_repository import PostRepository
 from app.schemas.audit_log import AuditLogCreate
 from app.schemas.post import AttachMediaRequest
@@ -50,9 +51,7 @@ class PostService:
 
         return organization
 
-    # Internal helper:
-    # Sirf post record fetch karega.
-    # Is function ke andar RBAC check nahi hoga.
+    # Internal helper: Sirf post record fetch karega.
     def get_post_record(
         self,
         db: Session,
@@ -219,6 +218,148 @@ class PostService:
             )
 
         return post
+
+    # =========================================================
+    # PUBLISH POST NOW (Direct to Instagram)
+    # Required Permission: publish.post
+    # =========================================================
+    def publish_post(
+        self,
+        db: Session,
+        post_id: int,
+        current_user,
+        request: Request,
+    ):
+        post = self.get_post_record(
+            db=db,
+            post_id=post_id,
+        )
+
+        self.check_organization_access(
+            db=db,
+            organization_id=post.organization_id,
+            current_user=current_user,
+        )
+
+        check_user_permission(
+            db=db,
+            current_user=current_user,
+            organization_id=post.organization_id,
+            permission_name="publish.post",
+        )
+
+        if post.status == PostStatus.PUBLISHED.value:
+            raise HTTPException(
+                status_code=400,
+                detail="Post is already published",
+            )
+
+        # 1. Connected Social Account Fetch
+        account = None
+        if post.social_account_id:
+            account = (
+                db.query(SocialAccount)
+                .filter(SocialAccount.id == post.social_account_id)
+                .first()
+            )
+
+        if not account:
+            account = (
+                db.query(SocialAccount)
+                .filter(
+                    SocialAccount.organization_id == post.organization_id,
+                    SocialAccount.platform == "instagram",
+                )
+                .first()
+            )
+
+        if not account or not account.access_token:
+            raise HTTPException(
+                status_code=400,
+                detail="No connected Instagram account found with valid access token",
+            )
+
+        # 2. Media Image URL Fetch
+        if not post.media or len(post.media) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Instagram requires at least one image/media attached to the post",
+            )
+
+        media_url = post.media[0].url or post.media[0].file_path
+        if not media_url.startswith("http"):
+            # Relative path ko absolute URL banayein
+            base_url = str(request.base_url).rstrip("/")
+            media_url = f"{base_url}/{media_url.lstrip('/')}"
+
+        # 3. Instagram Graph API Publish Process
+        try:
+            ig_user_id = account.account_id
+            access_token = account.access_token
+
+            # Step A: Container Create
+            container_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media"
+            container_payload = {
+                "image_url": media_url,
+                "caption": post.caption or post.title or "",
+                "access_token": access_token,
+            }
+            container_resp = httpx.post(container_url, data=container_payload, timeout=40.0)
+            container_data = container_resp.json()
+
+            if "id" not in container_data:
+                err_msg = container_data.get("error", {}).get("message", str(container_data))
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Instagram Media Creation Failed: {err_msg}",
+                )
+
+            creation_id = container_data["id"]
+
+            # Step B: Publish Container
+            publish_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media_publish"
+            publish_payload = {
+                "creation_id": creation_id,
+                "access_token": access_token,
+            }
+            publish_resp = httpx.post(publish_url, data=publish_payload, timeout=40.0)
+            publish_data = publish_resp.json()
+
+            if "id" not in publish_data:
+                err_msg = publish_data.get("error", {}).get("message", str(publish_data))
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Instagram Publish Failed: {err_msg}",
+                )
+
+            # Step C: Update Status to PUBLISHED
+            post.status = PostStatus.PUBLISHED.value
+            db.commit()
+            db.refresh(post)
+
+            self.create_post_audit_log(
+                db=db,
+                request=request,
+                current_user=current_user,
+                organization_id=post.organization_id,
+                action="post_published",
+                post_id=post.id,
+                details={
+                    "instagram_post_id": publish_data.get("id"),
+                    "platform": "instagram",
+                },
+            )
+
+            return post
+
+        except HTTPException:
+            raise
+        except Exception as err:
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Publishing exception: {str(err)}",
+            )
 
     # =========================================================
     # LIST POSTS

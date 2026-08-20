@@ -1,1 +1,30 @@
-{% extends "base.html" %}{% block content %}<div class="split"><form class="card form-card" id="createPostForm"><div class="card-title"><h2>Create a new post</h2><span class="pill">Draft or schedule</span></div><label>Social account<select id="socialAccount" required></select></label><label>Title<input id="postTitle" required placeholder="Campaign title"></label><label>Caption<textarea id="postCaption" rows="8" required placeholder="Write your caption..."></textarea></label><div class="two-col"><label>Schedule date<input id="scheduledAt" type="datetime-local"></label><label>Media IDs<input id="mediaIds" placeholder="e.g. 1,2,3"></label></div><div class="actions"><button class="btn ghost" type="button" onclick="location.href='/posts'">Cancel</button><button class="btn primary" type="submit">Create post</button></div></form><div class="card preview-card"><div class="card-title"><h2>Live Preview</h2></div><div class="social-preview"><div class="preview-head"><div class="avatar">SP</div><div><b>SmartAutoPost</b><small>Just now · 🌐</small></div></div><h3 id="previewTitle">Your title</h3><p id="previewCaption">Your caption will appear here.</p><div class="preview-image">Media preview</div><div class="preview-actions"><span>♡ Like</span><span>◯ Comment</span><span>↗ Share</span></div></div></div></div>{% endblock %}
+async function publishDirectly(){
+    if(!orgId()){ showToast('Create an organization first', true); return; }
+    if(!Number(socialAccount.value)){ showToast('Connect and select a social account first', true); return; }
+    if(!mediaIds.value.trim()){ showToast('Instagram ke liye Media ID dalna zaroori hai', true); return; }
+
+    try {
+        showToast('Publishing to Instagram...');
+        const media = mediaIds.value.split(',').map(x => Number(x.trim())).filter(Boolean);
+        
+        // 1. Post create hogi
+        const post = await api('/posts/', {
+            method: 'POST',
+            body: JSON.stringify({
+                organization_id: orgId(),
+                social_account_id: Number(socialAccount.value),
+                title: postTitle.value.trim() || 'Instagram Post',
+                caption: postCaption.value.trim(),
+                scheduled_at: null,
+                media_ids: media
+            })
+        });
+
+        // 2. Direct Instagram publish
+        await api(`/posts/${post.id}/publish`, { method: 'POST' });
+        showToast('Post published successfully to Instagram! 🎉');
+        setTimeout(() => location.href = '/posts', 1000);
+    } catch(err) {
+        showToast(err.message || 'Direct publish failed', true);
+    }
+}

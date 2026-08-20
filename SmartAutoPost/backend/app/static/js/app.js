@@ -16,13 +16,16 @@
 
 let organizations = [], currentOrg = null, postsCache = [];
 
-// Exact Date & Time Formatter (Bina kisi extra UTC shift ke)
+// Formats UTC/ISO date strings to exact IST display
 function fmtDate(d){
     if(!d) return '—';
     try {
-        const dt = new Date(d);
-        if(isNaN(dt.getTime())) return d;
-        return dt.toLocaleString('en-IN', {
+        let iso = typeof d === 'string' && !d.includes('Z') && !d.includes('+') ? d + 'Z' : d;
+        let date = new Date(iso);
+        if (isNaN(date.getTime())) date = new Date(d);
+        
+        return date.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -36,10 +39,11 @@ function fmtDate(d){
     }
 }
 
-// Local datetime input populate helper
+// Converts UTC ISO string to local input value (YYYY-MM-DDTHH:MM)
 function toLocalInputString(dateStr){
     if(!dateStr) return '';
-    const d = new Date(dateStr);
+    let iso = typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+') ? dateStr + 'Z' : dateStr;
+    const d = new Date(iso);
     if(isNaN(d.getTime())) return '';
     const pad = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -169,7 +173,7 @@ function tablePosts(rows){
                     <td><span class="status ${p.status}">${esc(p.status)}</span></td>
                     <td>${fmtDate(p.scheduled_at)}</td>
                     <td>
-                        ${p.status !== 'published' ? `<button class="btn small primary" style="background:#2563eb;color:#fff;margin-right:4px;" onclick="publishPost(${p.id})">Publish</button>` : ''}
+                        ${p.status !== 'published' ? `<button class="btn small" style="background:#2563eb;color:#fff;margin-right:4px;" onclick="publishPost(${p.id})">Publish</button>` : ''}
                         <button class="btn small" onclick="editPost(${p.id})">Edit</button> 
                         <button class="btn small danger" onclick="deletePost(${p.id})">Delete</button>
                     </td>
@@ -217,12 +221,17 @@ function editPost(id){
 document.getElementById('editPostForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     try{
+        let formattedSchedule = null;
+        if(editSchedule.value){
+            const localDate = new Date(editSchedule.value);
+            formattedSchedule = localDate.toISOString();
+        }
         await api(`/posts/${editPostId.value}`, {
             method: 'PUT',
             body: JSON.stringify({
                 title: editTitle.value,
                 caption: editCaption.value,
-                scheduled_at: editSchedule.value ? editSchedule.value : null
+                scheduled_at: formattedSchedule
             })
         });
         showToast('Post updated');
@@ -234,7 +243,7 @@ document.getElementById('editPostForm')?.addEventListener('submit', async e => {
 });
 
 async function publishPost(id){
-    if(!confirm('Kya aap is post ko Instagram par abhi publish karna chahte hain?')) return;
+    if(!confirm('Publish this post to Instagram now?')) return;
     try{
         await api(`/posts/${id}/publish`, { method: 'POST' });
         showToast('Post published successfully to Instagram! 🎉');
@@ -291,6 +300,11 @@ document.getElementById('createPostForm')?.addEventListener('submit', async e =>
     if(!Number(socialAccount.value)){ showToast('Connect and select a social account first', true); return; }
     try{
         const media = mediaIds.value.split(',').map(x => Number(x.trim())).filter(Boolean);
+        let formattedSchedule = null;
+        if(scheduledAt.value){
+            const localDate = new Date(scheduledAt.value);
+            formattedSchedule = localDate.toISOString();
+        }
         await api('/posts/', {
             method: 'POST',
             body: JSON.stringify({
@@ -298,7 +312,7 @@ document.getElementById('createPostForm')?.addEventListener('submit', async e =>
                 social_account_id: Number(socialAccount.value),
                 title: postTitle.value.trim(),
                 caption: postCaption.value.trim(),
-                scheduled_at: scheduledAt.value ? scheduledAt.value : null,
+                scheduled_at: formattedSchedule,
                 media_ids: media
             })
         });

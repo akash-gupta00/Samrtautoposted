@@ -3,40 +3,14 @@
 
 <head>
     <meta charset="utf-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
-
-    <meta
-        name="description"
-        content="SmartAutoPost AI social media automation SaaS"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SmartAutoPost AI social media automation SaaS">
     <title>{{ title }} · SmartAutoPost</title>
 
-    <link
-        rel="preconnect"
-        href="https://fonts.googleapis.com"
-    >
-
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-    >
-
-    <link
-        rel="stylesheet"
-        href="/static/css/app.css?v=2.0.0"
-    >
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=9999">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -46,23 +20,13 @@
 
         <aside class="sidebar">
 
-            <a
-                class="brand"
-                href="/dashboard"
-            >
+            <a class="brand" href="/dashboard">
                 <span class="logo">SP</span>
-
-                <span>
-                    Smart<span>Auto</span>Post
-                </span>
+                <span>Smart<span>Auto</span>Post</span>
             </a>
 
             <nav>
-
-                <p class="nav-label">
-                    Workspace
-                </p>
-
+                <p class="nav-label">Workspace</p>
                 {% set workspace = [
                     ('dashboard', '▦', 'Dashboard'),
                     ('create-post', '⊕', 'Create Post'),
@@ -74,19 +38,13 @@
                 ] %}
 
                 {% for slug, icon, label in workspace %}
-                    <a
-                        href="/{{ slug }}"
-                        class="nav-item {% if page == slug %}active{% endif %}"
-                    >
+                    <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}">
                         <span>{{ icon }}</span>
                         {{ label }}
                     </a>
                 {% endfor %}
 
-                <p class="nav-label">
-                    Management
-                </p>
-
+                <p class="nav-label">Management</p>
                 {% set manage = [
                     ('social-accounts', '●', 'Connected Accounts', false),
                     ('media-library', '▧', 'Media Library', false),
@@ -98,21 +56,15 @@
                 ] %}
 
                 {% for slug, icon, label, admin_only in manage %}
-                    <a
-                        href="/{{ slug }}"
-                        class="nav-item {% if page == slug %}active{% endif %}"
+                    <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
                         {% if admin_only %}data-admin-only="1"{% endif %}
-                        {% if slug == 'social-accounts' %}data-email-only="1"{% endif %}
-                    >
+                        {% if slug == 'social-accounts' %}data-email-only="1"{% endif %}>
                         <span>{{ icon }}</span>
                         {{ label }}
                     </a>
                 {% endfor %}
 
-                <p class="nav-label">
-                    Finance & System
-                </p>
-
+                <p class="nav-label">Finance & System</p>
                 {% set system = [
                     ('billing', '▣', 'Billing', true),
                     ('plans', '◈', 'Plans', true),
@@ -130,124 +82,61 @@
                 ] %}
 
                 {% for slug, icon, label, admin_only in system %}
-                    <a
-                        href="/{{ slug }}"
-                        class="nav-item {% if page == slug %}active{% endif %}"
-                        {% if admin_only %}data-admin-only="1"{% endif %}
-                    >
+                    <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
+                        {% if admin_only %}data-admin-only="1"{% endif %}>
                         <span>{{ icon }}</span>
                         {{ label }}
                     </a>
                 {% endfor %}
-
             </nav>
 
             <div class="sidebar-user">
-
-                <div
-                    class="avatar"
-                    id="sidebarAvatar"
-                >
-                    AK
-                </div>
-
+                <div class="avatar" id="sidebarAvatar">AK</div>
                 <div>
-                    <strong id="sidebarName">
-                        User
-                    </strong>
-
-                    <small id="sidebarOrg">
-                        SmartAutoPost
-                    </small>
+                    <strong id="sidebarName">User</strong>
+                    <small id="sidebarOrg">SmartAutoPost</small>
                 </div>
-
-                <button
-                    type="button"
-                    title="Logout"
-                    onclick="logout()"
-                >
-                    ↪
-                </button>
-
+                <button type="button" title="Logout" onclick="logout()">↪</button>
             </div>
 
         </aside>
 
         <main class="main">
-
             <header class="topbar">
-
                 <div>
-
-                    <button
-                        class="mobile-menu"
-                        type="button"
-                        onclick="document.body.classList.toggle('menu-open')"
-                    >
-                        ☰
-                    </button>
-
-                    <h1>
-                        {{ title }}
-                    </h1>
-
-                    <span class="badge">
-                        v1.0 MVP
-                    </span>
-
+                    <button class="mobile-menu" type="button" onclick="document.body.classList.toggle('menu-open')">☰</button>
+                    <h1>{{ title }}</h1>
+                    <span class="badge">v1.0 MVP</span>
                 </div>
 
                 <div class="top-actions">
-
-                    <a
-                        href="/notifications"
-                        title="Notifications"
-                    >
-                        ♢
-                    </a>
-
-                    <a
-                        href="/profile"
-                        title="Profile"
-                    >
-                        ◉
-                    </a>
-
+                    <a href="/notifications" title="Notifications">♢</a>
+                    <a href="/profile" title="Profile">◉</a>
                     <label data-admin-only="1">
                         Organization:
-
                         <select id="organizationSelect">
-                            <option value="">
-                                Select
-                            </option>
+                            <option value="">Select</option>
                         </select>
                     </label>
-
                 </div>
-
             </header>
 
             <section class="content">
                 {% block content %}
                 {% endblock %}
             </section>
-
         </main>
 
     </div>
 
-    <div
-        id="toast"
-        class="toast"
-    ></div>
+    <div id="toast" class="toast"></div>
 
-    <script src="/static/js/api.js?v=2.0.0"></script>
-    <script src="/static/js/app.js?v=2.0.0"></script>
-    <script src="/static/js/modules.js?v=2.0.0"></script>
+    <script src="/static/js/api.js?v=9999"></script>
+    <script src="/static/js/app.js?v=9999"></script>
+    <script src="/static/js/modules.js?v=9999"></script>
 
     {% block scripts %}
     {% endblock %}
 
 </body>
-
 </html>

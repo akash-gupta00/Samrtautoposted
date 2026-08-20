@@ -1,4 +1,3 @@
-import httpx
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -14,12 +13,14 @@ from app.repositories.post_repository import PostRepository
 from app.schemas.audit_log import AuditLogCreate
 from app.schemas.post import AttachMediaRequest
 from app.services.audit_log_service import AuditLogService
+from app.services.publisher_service import PublisherService
 
 
 class PostService:
 
     def __init__(self):
         self.repository = PostRepository()
+        self.publisher = PublisherService()
 
     # Organization owner ya member ka basic access check karega.
     def check_organization_access(
@@ -129,10 +130,7 @@ class PostService:
         if len(media_records) != len(unique_media_ids):
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    "One or more media files were not found "
-                    "in this organization"
-                ),
+                detail="One or more media files were not found in this organization",
             )
 
         return media_records
@@ -162,7 +160,6 @@ class PostService:
         )
 
         post_status = PostStatus.DRAFT.value
-
         if post_data.scheduled_at is not None:
             post_status = PostStatus.SCHEDULED.value
 
@@ -201,19 +198,6 @@ class PostService:
             },
         )
 
-        if post.scheduled_at is not None:
-            self.create_post_audit_log(
-                db=db,
-                request=request,
-                current_user=current_user,
-                organization_id=post.organization_id,
-                action="post_scheduled",
-                post_id=post.id,
-                details={
-                    "scheduled_at": post.scheduled_at.isoformat() if hasattr(post.scheduled_at, 'isoformat') else str(post.scheduled_at),
-                },
-            )
-
         return post
 
     # =========================================================
@@ -227,10 +211,7 @@ class PostService:
         current_user,
         request: Request,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -251,111 +232,42 @@ class PostService:
                 detail="Post is already published",
             )
 
-        # 1. Connected Social Account Fetch
-        account = None
-        if post.social_account_id:
-            account = (
-                db.query(SocialAccount)
-                .filter(SocialAccount.id == post.social_account_id)
-                .first()
-            )
+        base_url = (
+            str(request.base_url).rstrip("/")
+            if request
+            else "https://samrtautoposted.onrender.com"
+        )
 
-        if not account:
-            account = (
-                db.query(SocialAccount)
-                .filter(
-                    SocialAccount.organization_id == post.organization_id,
-                    SocialAccount.platform == "instagram",
-                )
-                .first()
-            )
+        result = self.publisher.publish_post(
+            db=db,
+            post=post,
+            base_url=base_url,
+        )
 
-        if not account or not account.access_token:
+        if not result.get("success"):
             raise HTTPException(
                 status_code=400,
-                detail="No connected Instagram account found with valid access token",
+                detail=result.get("error", "Publishing failed"),
             )
 
-        # 2. Media Image URL Fetch
-        if not post.media or len(post.media) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Instagram requires at least one image/media attached to the post",
-            )
+        post.status = PostStatus.PUBLISHED.value
+        db.commit()
+        db.refresh(post)
 
-        media_url = post.media[0].url or post.media[0].file_path
-        if not media_url.startswith("http"):
-            base_url = str(request.base_url).rstrip("/")
-            media_url = f"{base_url}/{media_url.lstrip('/')}"
+        self.create_post_audit_log(
+            db=db,
+            request=request,
+            current_user=current_user,
+            organization_id=post.organization_id,
+            action="post_published",
+            post_id=post.id,
+            details={
+                "platform": "instagram",
+                "instagram_post_id": result.get("instagram_post_id"),
+            },
+        )
 
-        # 3. Instagram Graph API Publish Process
-        try:
-            ig_user_id = account.account_id
-            access_token = account.access_token
-
-            # Step A: Container Create
-            container_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media"
-            container_payload = {
-                "image_url": media_url,
-                "caption": post.caption or post.title or "",
-                "access_token": access_token,
-            }
-            container_resp = httpx.post(container_url, data=container_payload, timeout=40.0)
-            container_data = container_resp.json()
-
-            if "id" not in container_data:
-                err_msg = container_data.get("error", {}).get("message", str(container_data))
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Instagram Media Creation Failed: {err_msg}",
-                )
-
-            creation_id = container_data["id"]
-
-            # Step B: Publish Container
-            publish_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media_publish"
-            publish_payload = {
-                "creation_id": creation_id,
-                "access_token": access_token,
-            }
-            publish_resp = httpx.post(publish_url, data=publish_payload, timeout=40.0)
-            publish_data = publish_resp.json()
-
-            if "id" not in publish_data:
-                err_msg = publish_data.get("error", {}).get("message", str(publish_data))
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Instagram Publish Failed: {err_msg}",
-                )
-
-            # Step C: Update Status to PUBLISHED
-            post.status = PostStatus.PUBLISHED.value
-            db.commit()
-            db.refresh(post)
-
-            self.create_post_audit_log(
-                db=db,
-                request=request,
-                current_user=current_user,
-                organization_id=post.organization_id,
-                action="post_published",
-                post_id=post.id,
-                details={
-                    "instagram_post_id": publish_data.get("id"),
-                    "platform": "instagram",
-                },
-            )
-
-            return post
-
-        except HTTPException:
-            raise
-        except Exception as err:
-            db.rollback()
-            raise HTTPException(
-                status_code=500,
-                detail=f"Publishing exception: {str(err)}",
-            )
+        return post
 
     # =========================================================
     # LIST POSTS
@@ -397,10 +309,7 @@ class PostService:
         post_id: int,
         current_user,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -429,10 +338,7 @@ class PostService:
         current_user,
         request: Request,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -447,27 +353,8 @@ class PostService:
             permission_name="posts.update",
         )
 
-        old_values = {
-            "title": post.title,
-            "caption": post.caption,
-            "social_account_id": post.social_account_id,
-            "scheduled_at": (
-                post.scheduled_at.isoformat()
-                if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
-                else str(post.scheduled_at) if post.scheduled_at else None
-            ),
-            "status": post.status,
-            "media_ids": [media.id for media in post.media],
-        }
-
-        update_data = post_data.model_dump(
-            exclude_unset=True,
-        )
-
-        media_ids = update_data.pop(
-            "media_ids",
-            None,
-        )
+        update_data = post_data.model_dump(exclude_unset=True)
+        media_ids = update_data.pop("media_ids", None)
 
         for field, value in update_data.items():
             setattr(post, field, value)
@@ -488,19 +375,6 @@ class PostService:
         db.commit()
         db.refresh(post)
 
-        new_values = {
-            "title": post.title,
-            "caption": post.caption,
-            "social_account_id": post.social_account_id,
-            "scheduled_at": (
-                post.scheduled_at.isoformat()
-                if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
-                else str(post.scheduled_at) if post.scheduled_at else None
-            ),
-            "status": post.status,
-            "media_ids": [media.id for media in post.media],
-        }
-
         self.create_post_audit_log(
             db=db,
             request=request,
@@ -508,20 +382,13 @@ class PostService:
             organization_id=post.organization_id,
             action="post_updated",
             post_id=post.id,
-            details={
-                "old_values": old_values,
-                "new_values": new_values,
-                "updated_fields": (
-                    list(update_data.keys())
-                    + (["media_ids"] if media_ids is not None else [])
-                ),
-            },
+            details={"title": post.title, "status": post.status},
         )
 
         return post
 
     # =========================================================
-    # DELETE POST (With Foreign Key Cascade Lock Fix)
+    # DELETE POST (With Foreign Key Cascade Cleanup)
     # Required Permission: posts.delete
     # =========================================================
     def delete_post(
@@ -531,10 +398,7 @@ class PostService:
         current_user,
         request: Request,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -552,39 +416,39 @@ class PostService:
         organization_id = post.organization_id
         deleted_post_id = post.id
 
-        post_details = {
-            "title": post.title,
-            "caption": post.caption,
-            "status": post.status,
-            "social_account_id": post.social_account_id,
-        }
+        try:
+            self.create_post_audit_log(
+                db=db,
+                request=request,
+                current_user=current_user,
+                organization_id=organization_id,
+                action="post_deleted",
+                post_id=deleted_post_id,
+                details={"title": post.title, "status": post.status},
+            )
 
-        # 1. Audit log create karein
-        self.create_post_audit_log(
-            db=db,
-            request=request,
-            current_user=current_user,
-            organization_id=organization_id,
-            action="post_deleted",
-            post_id=deleted_post_id,
-            details=post_details,
-        )
+            # Linked PostSchedule records delete
+            db.query(PostSchedule).filter(PostSchedule.post_id == post.id).delete(synchronize_session=False)
 
-        # 2. Linked Schedule entries delete karein (Constraint error hatane ke liye)
-        db.query(PostSchedule).filter(PostSchedule.post_id == post.id).delete(synchronize_session=False)
+            # Detach Media many-to-many relationship
+            post.media.clear()
+            db.flush()
 
-        # 3. Post ke linked Media relations detach karein
-        post.media = []
-        db.flush()
+            # Delete the Post
+            db.delete(post)
+            db.commit()
 
-        # 4. Final Post Delete
-        db.delete(post)
-        db.commit()
-
-        return {
-            "success": True,
-            "message": "Post deleted successfully",
-        }
+            return {
+                "success": True,
+                "message": "Post deleted successfully",
+            }
+        except Exception as err:
+            db.rollback()
+            print(f"Post delete error: {err}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Delete failed: {str(err)}",
+            )
 
     # =========================================================
     # SCHEDULE POST
@@ -598,10 +462,7 @@ class PostService:
         current_user,
         request: Request,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -622,35 +483,10 @@ class PostService:
                 detail="Published post cannot be scheduled",
             )
 
-        old_scheduled_at = (
-            post.scheduled_at.isoformat()
-            if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
-            else str(post.scheduled_at) if post.scheduled_at else None
-        )
-
         post.scheduled_at = scheduled_at
         post.status = PostStatus.SCHEDULED.value
-
         db.commit()
         db.refresh(post)
-
-        self.create_post_audit_log(
-            db=db,
-            request=request,
-            current_user=current_user,
-            organization_id=post.organization_id,
-            action="post_scheduled",
-            post_id=post.id,
-            details={
-                "old_scheduled_at": old_scheduled_at,
-                "new_scheduled_at": (
-                    post.scheduled_at.isoformat()
-                    if hasattr(post.scheduled_at, 'isoformat')
-                    else str(post.scheduled_at)
-                ),
-                "status": post.status,
-            },
-        )
 
         return post
 
@@ -666,10 +502,7 @@ class PostService:
         current_user,
         request: Request,
     ):
-        post = self.get_post_record(
-            db=db,
-            post_id=post_id,
-        )
+        post = self.get_post_record(db=db, post_id=post_id)
 
         self.check_organization_access(
             db=db,
@@ -690,35 +523,11 @@ class PostService:
             organization_id=post.organization_id,
         )
 
-        existing_media_ids = {
-            media.id
-            for media in post.media
-        }
-
-        attached_media_ids = []
-
+        existing_media_ids = {media.id for media in post.media}
         for media in media_records:
             if media.id not in existing_media_ids:
                 post.media.append(media)
-                attached_media_ids.append(media.id)
 
         db.commit()
         db.refresh(post)
-
-        self.create_post_audit_log(
-            db=db,
-            request=request,
-            current_user=current_user,
-            organization_id=post.organization_id,
-            action="media_attached_to_post",
-            post_id=post.id,
-            details={
-                "attached_media_ids": attached_media_ids,
-                "all_media_ids": [
-                    media.id
-                    for media in post.media
-                ],
-            },
-        )
-
         return post

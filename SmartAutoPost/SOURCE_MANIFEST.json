@@ -1,0 +1,16 @@
+{
+  "counts": {
+    ".py": 173,
+    ".html": 34,
+    ".css": 7,
+    ".js": 4,
+    ".md": 5
+  },
+  "compile_errors": [],
+  "excluded": [
+    "venv",
+    ".env",
+    "__pycache__",
+    "*.pyc"
+  ]
+}

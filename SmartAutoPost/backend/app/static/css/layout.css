@@ -1,0 +1,486 @@
+/* =========================================================
+   SMARTAUTOPOST FINAL LAYOUT
+   ========================================================= */
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overflow: hidden;
+    background: #f7f9fc;
+}
+
+/* Complete application */
+.app-shell {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+
+    width: 300px;
+    height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #ffffff;
+    border-right: 1px solid #e6ebf2;
+
+    overflow: hidden;
+    z-index: 30;
+}
+
+.sidebar .brand {
+    flex: 0 0 94px;
+    height: 94px;
+    min-height: 94px;
+}
+
+.sidebar nav {
+    flex: 1;
+    min-height: 0;
+
+    padding: 20px 15px 30px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.sidebar-user {
+    flex: 0 0 auto;
+    background: #ffffff;
+}
+
+/* =========================================================
+   MAIN SECTION
+   ========================================================= */
+
+.main {
+    position: relative;
+
+    width: calc(100% - 300px);
+    height: 100vh;
+    min-width: 0;
+    min-height: 0;
+
+    margin: 0 0 0 300px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+/* =========================================================
+   TOP HEADER
+   ========================================================= */
+
+.topbar {
+    position: relative;
+    top: auto;
+
+    flex: 0 0 94px;
+
+    width: 100%;
+    height: 94px;
+    min-height: 94px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 40px;
+
+    background: #ffffff;
+    border-bottom: 1px solid #e6ebf2;
+
+    z-index: 20;
+}
+
+.topbar > div {
+    min-width: 0;
+}
+
+.topbar h1 {
+    flex-shrink: 0;
+}
+
+.top-actions {
+    min-width: 0;
+}
+
+/* =========================================================
+   SCROLLABLE PAGE CONTENT
+   ========================================================= */
+
+.content {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    padding: 40px 40px 120px;
+
+    background: #f7f9fc;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    scrollbar-gutter: stable;
+    overscroll-behavior: contain;
+}
+
+.content > * {
+    max-width: 100%;
+}
+
+.content > *:last-child {
+    margin-bottom: 40px;
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+
+    width: 100%;
+}
+
+.metric {
+    width: 100%;
+    min-width: 0;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 28px;
+
+    width: 100%;
+}
+
+.dashboard-grid > * {
+    min-width: 0;
+}
+
+/* =========================================================
+   CREATE POST
+   ========================================================= */
+
+.split {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.15fr)
+        minmax(340px, 0.85fr);
+
+    gap: 28px;
+    align-items: start;
+
+    width: 100%;
+    min-width: 0;
+}
+
+.split > * {
+    min-width: 0;
+}
+
+.form-card {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+
+    padding-bottom: 32px;
+
+    overflow: visible;
+}
+
+.form-card form {
+    height: auto;
+    overflow: visible;
+}
+
+.form-card textarea {
+    min-height: 220px;
+    resize: vertical;
+}
+
+.form-card .actions {
+    margin-top: 26px;
+    margin-bottom: 20px;
+}
+
+.preview-card {
+    position: sticky;
+    top: 20px;
+
+    width: 100%;
+    min-width: 0;
+    height: max-content;
+}
+
+.social-preview {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* =========================================================
+   GENERAL GRID AND TABLE SAFETY
+   ========================================================= */
+
+.card,
+.metric,
+.account-card,
+.pricing-card,
+.media-item {
+    min-width: 0;
+}
+
+.table-wrap,
+.table-responsive {
+    width: 100%;
+    max-width: 100%;
+
+    overflow-x: auto;
+}
+
+.inline-form {
+    min-width: 0;
+}
+
+input,
+select,
+textarea {
+    max-width: 100%;
+}
+
+/* =========================================================
+   SCROLLBARS
+   ========================================================= */
+
+.content::-webkit-scrollbar,
+.sidebar nav::-webkit-scrollbar {
+    width: 8px;
+}
+
+.content::-webkit-scrollbar-track,
+.sidebar nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb,
+.sidebar nav::-webkit-scrollbar-thumb {
+    background: #c7d2e3;
+    border-radius: 999px;
+}
+
+.content::-webkit-scrollbar-thumb:hover,
+.sidebar nav::-webkit-scrollbar-thumb:hover {
+    background: #9caabd;
+}
+
+/* =========================================================
+   MEDIUM LAPTOP
+   ========================================================= */
+
+@media (max-width: 1250px) {
+    .sidebar {
+        width: 250px;
+    }
+
+    .main {
+        width: calc(100% - 250px);
+        margin-left: 250px;
+    }
+
+    .topbar {
+        padding: 0 28px;
+    }
+
+    .content {
+        padding: 30px 28px 100px;
+    }
+
+    .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .split {
+        grid-template-columns:
+            minmax(0, 1fr)
+            minmax(300px, 360px);
+
+        gap: 22px;
+    }
+}
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 1000px) {
+    .dashboard-grid,
+    .split,
+    .charts-grid,
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .preview-card {
+        position: static;
+    }
+
+    .account-grid,
+    .pricing-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 800px) {
+    html,
+    body {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .app-shell {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .sidebar {
+        width: 280px;
+
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+
+    body.menu-open .sidebar {
+        transform: translateX(0);
+    }
+
+    .main {
+        width: 100%;
+        height: 100vh;
+
+        margin-left: 0;
+    }
+
+    .topbar {
+        flex: 0 0 80px;
+
+        height: 80px;
+        min-height: 80px;
+
+        padding: 0 18px;
+    }
+
+    .topbar > div:first-child {
+        gap: 10px;
+    }
+
+    .topbar h1 {
+        font-size: 19px;
+    }
+
+    .topbar .badge {
+        padding: 6px 9px;
+        font-size: 11px;
+    }
+
+    .top-actions label,
+    .top-actions > a:not(:first-child) {
+        display: none;
+    }
+
+    .content {
+        padding: 20px 16px 90px;
+    }
+
+    .metric-grid,
+    .dashboard-grid,
+    .split,
+    .charts-grid,
+    .settings-grid,
+    .account-grid,
+    .pricing-grid,
+    .finance-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .inline-form,
+    .two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .preview-card {
+        position: static;
+    }
+
+    .media-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 520px) {
+    .topbar {
+        padding: 0 14px;
+    }
+
+    .topbar h1 {
+        max-width: 135px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .content {
+        padding: 16px 12px 80px;
+    }
+
+    .card,
+    .metric {
+        padding: 20px;
+        border-radius: 14px;
+    }
+
+    .media-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .card-title {
+        align-items: flex-start;
+    }
+
+    .form-card .actions {
+        flex-wrap: wrap;
+    }
+}

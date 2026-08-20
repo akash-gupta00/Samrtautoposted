@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-hero"><div><p class="eyebrow">SmartAutoPost</p><h2>Post Analytics</h2><p>Select a post to inspect its platform metrics.</p></div></div>
+<div class="card"><div class="inline-form"><select id="analyticsPostSelect"></select><button class="btn primary" type="button" onclick="loadPostAnalytics()">Load analytics</button></div></div><div class="card"><div class="card-title"><h2>Analytics Records</h2></div><div id="postAnalyticsTable" class="table-wrap"><div class="empty-state">Select a post.</div></div></div>
+{% endblock %}

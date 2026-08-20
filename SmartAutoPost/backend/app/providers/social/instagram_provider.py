@@ -5,23 +5,27 @@ import httpx
 class InstagramProvider:
 
     def __init__(self, access_token: str, ig_user_id: str):
-        self.access_token = access_token
-        self.ig_user_id = str(ig_user_id)
+        # Token aur User ID ko clean aur strip karein
+        self.access_token = str(access_token).strip() if access_token else ""
+        self.ig_user_id = str(ig_user_id).strip() if ig_user_id else ""
         self.graph_version = "v19.0"
 
     def publish_post(self, caption: str, media_url: str):
+        if not self.access_token:
+            return {"success": False, "error": "Instagram Access Token missing hai. Account reconnect karein."}
+
         if not media_url:
-            return {"success": False, "error": "Instagram requires a media_url"}
+            return {"success": False, "error": "Instagram requires a valid media_url"}
 
         try:
-            # 1. Agar Page ID pass hui ho toh Instagram Business ID fetch karein
+            # 1. Instagram Business ID verify karein
             try:
                 check_ig = httpx.get(
                     f"https://graph.facebook.com/{self.graph_version}/{self.ig_user_id}?fields=instagram_business_account&access_token={self.access_token}",
                     timeout=15.0
                 ).json()
                 if "instagram_business_account" in check_ig:
-                    self.ig_user_id = check_ig["instagram_business_account"]["id"]
+                    self.ig_user_id = str(check_ig["instagram_business_account"]["id"])
             except Exception:
                 pass
 
@@ -33,7 +37,7 @@ class InstagramProvider:
                 "access_token": self.access_token,
             }
 
-            resp = httpx.post(container_url, data=container_payload, timeout=30.0)
+            resp = httpx.post(container_url, data=container_payload, timeout=35.0)
             data = resp.json()
 
             if "id" not in data:
@@ -42,8 +46,8 @@ class InstagramProvider:
 
             creation_id = data["id"]
 
-            # 3. Step 2: Wait for Meta to process the image (Wait & Status Check)
-            time.sleep(5)  # 5 seconds wait taaki Meta image process kar le
+            # 3. Step 2: Wait for Meta image processing
+            time.sleep(5)
 
             for _ in range(5):
                 status_url = f"https://graph.facebook.com/{self.graph_version}/{creation_id}?fields=status_code&access_token={self.access_token}"
@@ -53,18 +57,17 @@ class InstagramProvider:
                 if status == "FINISHED" or not status:
                     break
                 elif status == "ERROR":
-                    return {"success": False, "error": "Instagram container processing error"}
+                    return {"success": False, "error": "Instagram media processing failed"}
                 
                 time.sleep(2)
 
             # 4. Step 3: Publish Container
             publish_url = f"https://graph.facebook.com/{self.graph_version}/{self.ig_user_id}/media_publish"
-            publish_payload = {
-                "creation_id": creation_id,
-                "access_token": self.access_token,
-            }
-
-            pub_resp = httpx.post(publish_url, data=publish_payload, timeout=30.0)
+            pub_resp = httpx.post(
+                publish_url,
+                data={"creation_id": creation_id, "access_token": self.access_token},
+                timeout=35.0
+            )
             pub_data = pub_resp.json()
 
             if "id" not in pub_data:

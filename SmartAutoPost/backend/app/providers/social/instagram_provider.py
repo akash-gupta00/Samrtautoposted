@@ -3,23 +3,25 @@ import time
 import requests
 
 class InstagramProvider:
-    DEFAULT_ACCESS_TOKEN = "EAAj5dRyrYycBSQULb1r2LFQSNbALNmyvpZC3F6fGUzCeEtjANy0LBxAjOpkp4AiWpq1pPW3DpMuZBP2RkAIcPLZBh4rh0NlOAcWX3sMpuZAATk66jMsRJbl5R0d971huT35xnaNifituxwz2c9ZCPP7wkjKy6R7useW5PE2DcAE8VClZCsFUZAPmu6yzZBImtWD3rMLeB7eKLkItZANQLuxXBAZBXYRCKl7BS1Rnu0AjEOyRgZD"
-    DEFAULT_IG_USER_ID = "17841479000604439"
+    # Working Meta Credentials
+    LIVE_ACCESS_TOKEN = "EAAj5dRyrYycBSQULb1r2LFQSNbALNmyvpZC3F6fGUzCeEtjANy0LBxAjOpkp4AiWpq1pPW3DpMuZBP2RkAIcPLZBh4rh0NlOAcWX3sMpuZAATk66jMsRJbl5R0d971huT35xnaNifituxwz2c9ZCPP7wkjKy6R7useW5PE2DcAE8VClZCsFUZAPmu6yzZBImtWD3rMLeB7eKLkItZANQLuxXBAZBXYRCKl7BS1Rnu0AjEOyRgZD"
+    LIVE_IG_USER_ID = "17841479000604439"
 
-    def __init__(self, access_token: str = None, ig_user_id: str = None, **kwargs):
-        self.access_token = access_token or self.DEFAULT_ACCESS_TOKEN
-        self.ig_user_id = ig_user_id or self.DEFAULT_IG_USER_ID
+    def __init__(self, *args, **kwargs):
+        # Always use the verified working token & IG ID
+        self.access_token = self.LIVE_ACCESS_TOKEN
+        self.ig_user_id = self.LIVE_IG_USER_ID
         self.base_url = "https://graph.facebook.com/v26.0"
 
     def publish_post(self, image_url: str = None, caption: str = "", media_url: str = None, **kwargs):
         """
-        Step 1: Media Container create karna
-        Step 2: Media Container ko Instagram par publish karna
+        Step 1: Create Instagram Media Container
+        Step 2: Publish Container to Feed
         """
         target_image_url = image_url or media_url or kwargs.get("url")
 
-        if not self.access_token or not self.ig_user_id:
-            raise ValueError("Instagram credentials missing.")
+        if not target_image_url:
+            raise ValueError("Media image URL is required for Instagram posting.")
 
         # 1. Create Media Container
         container_url = f"{self.base_url}/{self.ig_user_id}/media"
@@ -37,8 +39,8 @@ class InstagramProvider:
 
         creation_id = container_data["id"]
         
-        # Wait for Instagram to process the image container
-        time.sleep(3)
+        # Instagram processing delay
+        time.sleep(4)
 
         # 2. Publish Container
         publish_url = f"{self.base_url}/{self.ig_user_id}/media_publish"
@@ -59,6 +61,5 @@ class InstagramProvider:
             "id": publish_data["id"]
         }
 
-    # Alias if publisher calls `publish` instead of `publish_post`
     def publish(self, *args, **kwargs):
         return self.publish_post(*args, **kwargs)

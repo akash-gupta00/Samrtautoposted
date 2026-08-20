@@ -16,15 +16,13 @@
 
 let organizations = [], currentOrg = null, postsCache = [];
 
-// Exact IST (Indian Standard Time) Formatter
+// Exact Date & Time Formatter (Bina kisi extra UTC shift ke)
 function fmtDate(d){
     if(!d) return '—';
     try {
-        const utcStr = typeof d === 'string' && !d.endsWith('Z') && !d.includes('+') ? d + 'Z' : d;
-        const date = new Date(utcStr);
-        if(isNaN(date.getTime())) return d;
-        return date.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
+        const dt = new Date(d);
+        if(isNaN(dt.getTime())) return d;
+        return dt.toLocaleString('en-IN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -38,11 +36,10 @@ function fmtDate(d){
     }
 }
 
-// Helper to fill datetime-local inputs in local time
+// Local datetime input populate helper
 function toLocalInputString(dateStr){
     if(!dateStr) return '';
-    const utcStr = typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+') ? dateStr + 'Z' : dateStr;
-    const d = new Date(utcStr);
+    const d = new Date(dateStr);
     if(isNaN(d.getTime())) return '';
     const pad = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -174,7 +171,7 @@ function tablePosts(rows){
                     <td>
                         ${p.status !== 'published' ? `<button class="btn small primary" style="background:#2563eb;color:#fff;margin-right:4px;" onclick="publishPost(${p.id})">Publish</button>` : ''}
                         <button class="btn small" onclick="editPost(${p.id})">Edit</button> 
-                        <button class="btn small" onclick="deletePost(${p.id})">Delete</button>
+                        <button class="btn small danger" onclick="deletePost(${p.id})">Delete</button>
                     </td>
                 </tr>
             `).join('')}
@@ -225,7 +222,7 @@ document.getElementById('editPostForm')?.addEventListener('submit', async e => {
             body: JSON.stringify({
                 title: editTitle.value,
                 caption: editCaption.value,
-                scheduled_at: editSchedule.value ? new Date(editSchedule.value).toISOString() : null
+                scheduled_at: editSchedule.value ? editSchedule.value : null
             })
         });
         showToast('Post updated');
@@ -252,10 +249,11 @@ async function deletePost(id){
     if(!confirm('Delete this post?')) return;
     try{
         await api(`/posts/${id}`, { method: 'DELETE' });
-        showToast('Post deleted');
-        loadPosts();
+        showToast('Post deleted successfully');
+        postsCache = postsCache.filter(p => p.id !== id);
+        renderPosts(postsCache);
     } catch(e) {
-        showToast(e.message, true);
+        showToast(e.message || 'Delete failed', true);
     }
 }
 
@@ -300,7 +298,7 @@ document.getElementById('createPostForm')?.addEventListener('submit', async e =>
                 social_account_id: Number(socialAccount.value),
                 title: postTitle.value.trim(),
                 caption: postCaption.value.trim(),
-                scheduled_at: scheduledAt.value ? new Date(scheduledAt.value).toISOString() : null,
+                scheduled_at: scheduledAt.value ? scheduledAt.value : null,
                 media_ids: media
             })
         });

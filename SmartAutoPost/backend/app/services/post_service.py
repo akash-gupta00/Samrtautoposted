@@ -8,6 +8,7 @@ from app.models.media import Media
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.post import Post
+from app.models.post_schedule import PostSchedule
 from app.models.social_account import SocialAccount
 from app.repositories.post_repository import PostRepository
 from app.schemas.audit_log import AuditLogCreate
@@ -86,21 +87,20 @@ class PostService:
             AuditLogService.create_log(
                 db=db,
                 audit_data=AuditLogCreate(
-                    user_id=current_user.id,
+                    user_id=current_user.id if current_user else 1,
                     organization_id=organization_id,
                     action=action,
                     entity_type="post",
                     entity_id=post_id,
                     ip_address=(
                         request.client.host
-                        if request.client
+                        if request and request.client
                         else None
                     ),
-                    user_agent=request.headers.get("user-agent"),
+                    user_agent=request.headers.get("user-agent") if request else None,
                     details=details,
                 ),
             )
-
         except Exception as error:
             db.rollback()
             print(f"Post audit log error: {error}")
@@ -197,10 +197,7 @@ class PostService:
                 "title": post.title,
                 "status": post.status,
                 "social_account_id": post.social_account_id,
-                "media_ids": [
-                    media.id
-                    for media in post.media
-                ],
+                "media_ids": [media.id for media in post.media],
             },
         )
 
@@ -213,7 +210,7 @@ class PostService:
                 action="post_scheduled",
                 post_id=post.id,
                 details={
-                    "scheduled_at": post.scheduled_at.isoformat(),
+                    "scheduled_at": post.scheduled_at.isoformat() if hasattr(post.scheduled_at, 'isoformat') else str(post.scheduled_at),
                 },
             )
 
@@ -288,7 +285,6 @@ class PostService:
 
         media_url = post.media[0].url or post.media[0].file_path
         if not media_url.startswith("http"):
-            # Relative path ko absolute URL banayein
             base_url = str(request.base_url).rstrip("/")
             media_url = f"{base_url}/{media_url.lstrip('/')}"
 
@@ -386,12 +382,8 @@ class PostService:
 
         return (
             db.query(Post)
-            .filter(
-                Post.organization_id == organization_id
-            )
-            .order_by(
-                Post.created_at.desc()
-            )
+            .filter(Post.organization_id == organization_id)
+            .order_by(Post.created_at.desc())
             .all()
         )
 
@@ -461,14 +453,11 @@ class PostService:
             "social_account_id": post.social_account_id,
             "scheduled_at": (
                 post.scheduled_at.isoformat()
-                if post.scheduled_at
-                else None
+                if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
+                else str(post.scheduled_at) if post.scheduled_at else None
             ),
             "status": post.status,
-            "media_ids": [
-                media.id
-                for media in post.media
-            ],
+            "media_ids": [media.id for media in post.media],
         }
 
         update_data = post_data.model_dump(
@@ -486,7 +475,6 @@ class PostService:
         if "scheduled_at" in update_data:
             if post.scheduled_at is not None:
                 post.status = PostStatus.SCHEDULED.value
-
             elif post.status == PostStatus.SCHEDULED.value:
                 post.status = PostStatus.DRAFT.value
 
@@ -506,14 +494,11 @@ class PostService:
             "social_account_id": post.social_account_id,
             "scheduled_at": (
                 post.scheduled_at.isoformat()
-                if post.scheduled_at
-                else None
+                if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
+                else str(post.scheduled_at) if post.scheduled_at else None
             ),
             "status": post.status,
-            "media_ids": [
-                media.id
-                for media in post.media
-            ],
+            "media_ids": [media.id for media in post.media],
         }
 
         self.create_post_audit_log(
@@ -528,11 +513,7 @@ class PostService:
                 "new_values": new_values,
                 "updated_fields": (
                     list(update_data.keys())
-                    + (
-                        ["media_ids"]
-                        if media_ids is not None
-                        else []
-                    )
+                    + (["media_ids"] if media_ids is not None else [])
                 ),
             },
         )
@@ -540,7 +521,7 @@ class PostService:
         return post
 
     # =========================================================
-    # DELETE POST
+    # DELETE POST (With Foreign Key Cascade Lock Fix)
     # Required Permission: posts.delete
     # =========================================================
     def delete_post(
@@ -578,6 +559,7 @@ class PostService:
             "social_account_id": post.social_account_id,
         }
 
+        # 1. Audit log create karein
         self.create_post_audit_log(
             db=db,
             request=request,
@@ -588,6 +570,14 @@ class PostService:
             details=post_details,
         )
 
+        # 2. Linked Schedule entries delete karein (Constraint error hatane ke liye)
+        db.query(PostSchedule).filter(PostSchedule.post_id == post.id).delete(synchronize_session=False)
+
+        # 3. Post ke linked Media relations detach karein
+        post.media = []
+        db.flush()
+
+        # 4. Final Post Delete
         db.delete(post)
         db.commit()
 
@@ -634,8 +624,8 @@ class PostService:
 
         old_scheduled_at = (
             post.scheduled_at.isoformat()
-            if post.scheduled_at
-            else None
+            if post.scheduled_at and hasattr(post.scheduled_at, 'isoformat')
+            else str(post.scheduled_at) if post.scheduled_at else None
         )
 
         post.scheduled_at = scheduled_at
@@ -655,6 +645,8 @@ class PostService:
                 "old_scheduled_at": old_scheduled_at,
                 "new_scheduled_at": (
                     post.scheduled_at.isoformat()
+                    if hasattr(post.scheduled_at, 'isoformat')
+                    else str(post.scheduled_at)
                 ),
                 "status": post.status,
             },

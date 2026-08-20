@@ -1,5 +1,5 @@
-import httpx
 from fastapi import HTTPException, Request
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.enums import PostStatus
@@ -8,18 +8,19 @@ from app.models.media import Media
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.post import Post
-from app.models.post_schedule import PostSchedule
 from app.models.social_account import SocialAccount
 from app.repositories.post_repository import PostRepository
 from app.schemas.audit_log import AuditLogCreate
 from app.schemas.post import AttachMediaRequest
 from app.services.audit_log_service import AuditLogService
+from app.services.publisher_service import PublisherService
 
 
 class PostService:
 
     def __init__(self):
         self.repository = PostRepository()
+        self.publisher = PublisherService()
 
     def check_organization_access(
         self,
@@ -73,7 +74,7 @@ class PostService:
     def create_post_audit_log(
         self,
         db: Session,
-        request: Request,
+        request: Request | None,
         current_user,
         organization_id: int,
         action: str,
@@ -130,12 +131,15 @@ class PostService:
 
         return media_records
 
+    # =========================================================
+    # CREATE POST
+    # =========================================================
     def create_post(
         self,
         db: Session,
         post_data,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         self.check_organization_access(
             db=db,
@@ -191,12 +195,15 @@ class PostService:
 
         return post
 
+    # =========================================================
+    # PUBLISH POST NOW (Direct to Instagram)
+    # =========================================================
     def publish_post(
         self,
         db: Session,
         post_id: int,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         post = self.get_post_record(db=db, post_id=post_id)
 
@@ -219,110 +226,46 @@ class PostService:
                 detail="Post is already published",
             )
 
-        account = None
-        if post.social_account_id:
-            account = (
-                db.query(SocialAccount)
-                .filter(SocialAccount.id == post.social_account_id)
-                .first()
-            )
+        base_url = (
+            str(request.base_url).rstrip("/")
+            if request
+            else "https://samrtautoposted.onrender.com"
+        )
 
-        if not account:
-            # NOTE: was `SocialAccount.platform` — corrected to `provider`
-            # since that's the field name used everywhere else in the app
-            # (frontend script.js reads `a.provider`). If your model actually
-            # uses a different column name, update this line to match it.
-            account = (
-                db.query(SocialAccount)
-                .filter(
-                    SocialAccount.organization_id == post.organization_id,
-                    SocialAccount.provider == "instagram",
-                )
-                .first()
-            )
+        result = self.publisher.publish_post(
+            db=db,
+            post=post,
+            base_url=base_url,
+        )
 
-        if not account or not account.access_token:
+        if not result.get("success"):
             raise HTTPException(
                 status_code=400,
-                detail="No connected Instagram account found with valid access token",
+                detail=result.get("error", "Publishing failed"),
             )
 
-        if not post.media or len(post.media) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Instagram requires at least one image/media attached to the post",
-            )
+        post.status = PostStatus.PUBLISHED.value
+        db.commit()
+        db.refresh(post)
 
-        media_url = post.media[0].url or post.media[0].file_path
-        if not media_url.startswith("http"):
-            base_url = str(request.base_url).rstrip("/")
-            media_url = f"{base_url}/{media_url.lstrip('/')}"
+        self.create_post_audit_log(
+            db=db,
+            request=request,
+            current_user=current_user,
+            organization_id=post.organization_id,
+            action="post_published",
+            post_id=post.id,
+            details={
+                "platform": "instagram",
+                "instagram_post_id": result.get("instagram_post_id"),
+            },
+        )
 
-        try:
-            ig_user_id = account.account_id
-            access_token = account.access_token
+        return post
 
-            container_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media"
-            container_payload = {
-                "image_url": media_url,
-                "caption": post.caption or post.title or "",
-                "access_token": access_token,
-            }
-            container_resp = httpx.post(container_url, data=container_payload, timeout=40.0)
-            container_data = container_resp.json()
-
-            if "id" not in container_data:
-                err_msg = container_data.get("error", {}).get("message", str(container_data))
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Instagram Media Creation Failed: {err_msg}",
-                )
-
-            creation_id = container_data["id"]
-
-            publish_url = f"https://graph.facebook.com/v19.0/{ig_user_id}/media_publish"
-            publish_payload = {
-                "creation_id": creation_id,
-                "access_token": access_token,
-            }
-            publish_resp = httpx.post(publish_url, data=publish_payload, timeout=40.0)
-            publish_data = publish_resp.json()
-
-            if "id" not in publish_data:
-                err_msg = publish_data.get("error", {}).get("message", str(publish_data))
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Instagram Publish Failed: {err_msg}",
-                )
-
-            post.status = PostStatus.PUBLISHED.value
-            db.commit()
-            db.refresh(post)
-
-            self.create_post_audit_log(
-                db=db,
-                request=request,
-                current_user=current_user,
-                organization_id=post.organization_id,
-                action="post_published",
-                post_id=post.id,
-                details={
-                    "instagram_post_id": publish_data.get("id"),
-                    "platform": "instagram",
-                },
-            )
-
-            return post
-
-        except HTTPException:
-            raise
-        except Exception as err:
-            db.rollback()
-            raise HTTPException(
-                status_code=500,
-                detail=f"Publishing exception: {str(err)}",
-            )
-
+    # =========================================================
+    # LIST POSTS
+    # =========================================================
     def list_posts(
         self,
         db: Session,
@@ -349,6 +292,9 @@ class PostService:
             .all()
         )
 
+    # =========================================================
+    # SINGLE POST DETAIL
+    # =========================================================
     def get_post_detail(
         self,
         db: Session,
@@ -372,13 +318,16 @@ class PostService:
 
         return post
 
+    # =========================================================
+    # UPDATE POST
+    # =========================================================
     def update_post(
         self,
         db: Session,
         post_id: int,
         post_data,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         post = self.get_post_record(db=db, post_id=post_id)
 
@@ -429,12 +378,15 @@ class PostService:
 
         return post
 
+    # =========================================================
+    # DELETE POST (With Foreign Key Cascade Cleanup)
+    # =========================================================
     def delete_post(
         self,
         db: Session,
         post_id: int,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         post = self.get_post_record(db=db, post_id=post_id)
 
@@ -465,11 +417,15 @@ class PostService:
                 details={"title": post.title, "status": post.status},
             )
 
-            db.query(PostSchedule).filter(PostSchedule.post_id == post.id).delete(synchronize_session=False)
-            post.media.clear()
-            db.flush()
+            # Foreign key tables se post_id ke records pehle delete karna
+            db.execute(text("DELETE FROM publish_logs WHERE post_id = :pid"), {"pid": deleted_post_id})
+            db.execute(text("DELETE FROM post_schedules WHERE post_id = :pid"), {"pid": deleted_post_id})
+            db.execute(text("DELETE FROM post_analytics WHERE post_id = :pid"), {"pid": deleted_post_id})
+            db.execute(text("DELETE FROM post_media WHERE post_id = :pid"), {"pid": deleted_post_id})
+            db.commit()
 
-            db.delete(post)
+            # Main post record delete karna
+            db.execute(text("DELETE FROM posts WHERE id = :pid"), {"pid": deleted_post_id})
             db.commit()
 
             return {
@@ -478,18 +434,22 @@ class PostService:
             }
         except Exception as err:
             db.rollback()
+            print(f"CRITICAL DELETE ERROR: {err}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Delete failed: {str(err)}",
             )
 
+    # =========================================================
+    # SCHEDULE POST
+    # =========================================================
     def schedule_post(
         self,
         db: Session,
         post_id: int,
         scheduled_at,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         post = self.get_post_record(db=db, post_id=post_id)
 
@@ -519,13 +479,16 @@ class PostService:
 
         return post
 
+    # =========================================================
+    # ATTACH MEDIA TO POST
+    # =========================================================
     def attach_media_to_post(
         self,
         db: Session,
         post_id: int,
         data: AttachMediaRequest,
         current_user,
-        request: Request,
+        request: Request | None = None,
     ):
         post = self.get_post_record(db=db, post_id=post_id)
 

@@ -1,20 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, Request
-
-from app.models.post import Post
-from app.models.post_schedule import PostSchedule
+from sqlalchemy.orm import Session
 
 from app.core.enums import PostStatus
-
-from app.repositories.post_schedule_repository import (
-    PostScheduleRepository,
-)
-
-from app.services.publisher_service import PublisherService
-from app.services.audit_log_service import AuditLogService
-
+from app.models.post import Post
+from app.models.post_schedule import PostSchedule
+from app.repositories.post_schedule_repository import PostScheduleRepository
 from app.schemas.audit_log import AuditLogCreate
+from app.services.audit_log_service import AuditLogService
+from app.services.publisher_service import PublisherService
 
 
 class PostScheduleService:
@@ -26,7 +21,7 @@ class PostScheduleService:
     # Audit log create karega.
     def create_audit_log(
         self,
-        db,
+        db: Session,
         request: Request,
         current_user,
         post: Post,
@@ -38,28 +33,27 @@ class PostScheduleService:
             AuditLogService.create_log(
                 db=db,
                 audit_data=AuditLogCreate(
-                    user_id=current_user.id,
+                    user_id=current_user.id if current_user else 1,
                     organization_id=post.organization_id,
                     action=action,
                     entity_type="post_schedule",
-                    entity_id=schedule.id,
+                    entity_id=schedule.id if schedule else post.id,
                     ip_address=(
                         request.client.host
-                        if request.client
+                        if request and request.client
                         else None
                     ),
-                    user_agent=request.headers.get("user-agent"),
+                    user_agent=request.headers.get("user-agent") if request else None,
                     details=details,
                 ),
             )
-
         except Exception as error:
             print(f"Schedule audit log error: {error}")
 
     # Schedule create karega.
     def create_schedule(
         self,
-        db,
+        db: Session,
         data,
         current_user,
         request: Request,
@@ -110,16 +104,13 @@ class PostScheduleService:
     # Schedule time update karega.
     def reschedule_post(
         self,
-        db,
+        db: Session,
         schedule_id: int,
         schedule_time: datetime,
         current_user,
         request: Request,
     ):
-        schedule = self.repository.get_by_id(
-            db,
-            schedule_id,
-        )
+        schedule = self.repository.get_by_id(db, schedule_id)
 
         if not schedule:
             raise HTTPException(
@@ -171,9 +162,7 @@ class PostScheduleService:
                     if old_schedule_time
                     else None
                 ),
-                "new_schedule_time": (
-                    schedule.schedule_time.isoformat()
-                ),
+                "new_schedule_time": schedule.schedule_time.isoformat(),
                 "status": schedule.status,
             },
         )
@@ -183,15 +172,12 @@ class PostScheduleService:
     # Schedule cancel karega.
     def cancel_schedule(
         self,
-        db,
+        db: Session,
         schedule_id: int,
         current_user,
         request: Request,
     ):
-        schedule = self.repository.get_by_id(
-            db,
-            schedule_id,
-        )
+        schedule = self.repository.get_by_id(db, schedule_id)
 
         if not schedule:
             raise HTTPException(
@@ -224,7 +210,7 @@ class PostScheduleService:
             schedule=schedule,
         )
 
-        post.status = "draft"
+        post.status = PostStatus.DRAFT.value
         db.commit()
         db.refresh(post)
 
@@ -239,101 +225,83 @@ class PostScheduleService:
                 "post_id": post.id,
                 "old_status": old_status,
                 "new_status": schedule.status,
-                "schedule_time": (
-                    schedule.schedule_time.isoformat()
-                ),
+                "schedule_time": schedule.schedule_time.isoformat(),
             },
         )
 
         return schedule
 
-    # Pending schedules process karega.
-    def process_pending_schedules(self, db):
-        current_time = datetime.now()
-
-        schedules = self.repository.list_pending_schedules(
-            db,
-            current_time,
-        )
+    # =========================================================
+    # PROCESS PENDING SCHEDULES (Direct Post Table + PostSchedule Sync)
+    # =========================================================
+    def process_pending_schedules(self, db: Session):
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        now_local = datetime.now()
 
         processed = 0
         failed = 0
 
-        for schedule in schedules:
+        # Step 1: Check Direct Scheduled Posts from 'Post' table
+        due_posts = (
+            db.query(Post)
+            .filter(
+                Post.status == PostStatus.SCHEDULED.value,
+                Post.scheduled_at.isnot(None),
+                (Post.scheduled_at <= now_utc) | (Post.scheduled_at <= now_local),
+            )
+            .all()
+        )
+
+        for post in due_posts:
             try:
-                post = (
-                    db.query(Post)
-                    .filter(Post.id == schedule.post_id)
-                    .first()
-                )
+                # Direct publishing
+                publish_result = self.publisher.publish_post(db=db, post=post)
 
-                if not post:
-                    self.repository.update_status(
-                        db,
-                        schedule,
-                        "failed",
-                    )
-                    failed += 1
-                    continue
+                if isinstance(publish_result, dict) and publish_result.get("success") is False:
+                    raise Exception(publish_result.get("error", "Publishing failed"))
 
-                # Pehle processing status.
-                self.repository.update_status(
-                    db,
-                    schedule,
-                    "processing",
-                )
-
-                # Sirf ek baar publish call hoga.
-                publish_result = self.publisher.publish_post(
-                    db=db,
-                    post=post,
-                )
-
-                if (
-                    isinstance(publish_result, dict)
-                    and publish_result.get("success") is False
-                ):
-                    raise Exception(
-                        publish_result.get(
-                            "error",
-                            "Publishing failed",
-                        )
-                    )
-
-                self.repository.update_post_status(
-                    db,
-                    schedule.post_id,
-                    PostStatus.PUBLISHED.value,
-                )
-
-                self.repository.update_status(
-                    db,
-                    schedule,
-                    "published",
-                )
-
+                post.status = PostStatus.PUBLISHED.value
+                db.commit()
+                db.refresh(post)
                 processed += 1
+                print(f"✅ Automatically published post ID: {post.id} to Instagram")
 
             except Exception as error:
                 db.rollback()
-
-                schedule = self.repository.get_by_id(
-                    db,
-                    schedule.id,
-                )
-
-                if schedule:
-                    schedule.retry_count += 1
-                    schedule.status = "failed"
-
-                    db.commit()
-                    db.refresh(schedule)
-
-                print(
-                    f"Schedule {schedule.id} failed: {error}"
-                )
-
+                print(f"❌ Auto-publish failed for post ID {post.id}: {error}")
                 failed += 1
+
+        # Step 2: Check PostSchedule records (if any created via specific queue)
+        try:
+            schedules = self.repository.list_pending_schedules(db, now_utc)
+            for schedule in schedules:
+                try:
+                    post = db.query(Post).filter(Post.id == schedule.post_id).first()
+                    if not post:
+                        self.repository.update_status(db, schedule, "failed")
+                        failed += 1
+                        continue
+
+                    self.repository.update_status(db, schedule, "processing")
+                    publish_result = self.publisher.publish_post(db=db, post=post)
+
+                    if isinstance(publish_result, dict) and publish_result.get("success") is False:
+                        raise Exception(publish_result.get("error", "Publishing failed"))
+
+                    self.repository.update_post_status(db, schedule.post_id, PostStatus.PUBLISHED.value)
+                    self.repository.update_status(db, schedule, "published")
+                    processed += 1
+
+                except Exception as error:
+                    db.rollback()
+                    sch = self.repository.get_by_id(db, schedule.id)
+                    if sch:
+                        sch.retry_count += 1
+                        sch.status = "failed"
+                        db.commit()
+                    failed += 1
+        except Exception as e:
+            print(f"PostSchedule table sync skip: {e}")
 
         return {
             "success": True,

@@ -1,136 +1,81 @@
-import requests
-
-from app.providers.social.base_provider import BaseProvider
-
-
-# Instagram Graph API version. Meta har kuch mahine me version
-# badalta rehta hai -- zaroorat pade to yahan update kar dena.
-GRAPH_API_VERSION = "v21.0"
-GRAPH_BASE_URL = f"https://graph.instagram.com/{GRAPH_API_VERSION}"
+import time
+import httpx
 
 
-class InstagramProvider(BaseProvider):
-    """
-    Instagram API with Instagram Login (2024+) ka real implementation.
+class InstagramProvider:
 
-    Content publish karne ke liye Instagram ka process do steps me hota hai:
-      1. Media container banao  -> POST /{ig-user-id}/media
-      2. Container publish karo -> POST /{ig-user-id}/media_publish
-
-    ig_user_id = SocialAccount.page_id (Instagram Business Account ID,
-    jo login ke waqt graph.instagram.com/me se milta hai).
-
-    IMPORTANT: Instagram par sirf image/video wala post ja sakta hai --
-    plain text-only post Instagram feed par publish nahi ho sakta
-    (ye Instagram ki khud ki limitation hai, humare code ki nahi).
-    """
-
-    def __init__(self, access_token=None, ig_user_id=None):
+    def __init__(self, access_token: str, ig_user_id: str):
         self.access_token = access_token
-        self.ig_user_id = ig_user_id
+        self.ig_user_id = str(ig_user_id)
+        self.graph_version = "v19.0"
 
-    def connect(self):
-        if not self.access_token:
-            return {"success": False, "message": "Instagram access token missing"}
-        return {"success": True, "message": "Instagram connected successfully"}
+    def publish_post(self, caption: str, media_url: str):
+        if not media_url:
+            return {"success": False, "error": "Instagram requires a media_url"}
 
-    def publish_post(self, post_caption: str, media_url: str = None):
         try:
-            if not self.access_token:
-                return {"success": False, "platform": "instagram", "error": "Access token missing"}
+            # 1. Agar Page ID pass hui ho toh Instagram Business ID fetch karein
+            try:
+                check_ig = httpx.get(
+                    f"https://graph.facebook.com/{self.graph_version}/{self.ig_user_id}?fields=instagram_business_account&access_token={self.access_token}",
+                    timeout=15.0
+                ).json()
+                if "instagram_business_account" in check_ig:
+                    self.ig_user_id = check_ig["instagram_business_account"]["id"]
+            except Exception:
+                pass
 
-            if not self.ig_user_id:
-                return {
-                    "success": False,
-                    "platform": "instagram",
-                    "error": "Instagram Business Account ID missing (social account ka page_id set nahi hai)",
-                }
-
-            if not media_url:
-                return {
-                    "success": False,
-                    "platform": "instagram",
-                    "error": "Instagram par photo/video ke bina post nahi ja sakta. Post me kam se kam ek image/video attach karein.",
-                }
-
-            container_url = f"{GRAPH_BASE_URL}/{self.ig_user_id}/media"
+            # 2. Step 1: Create Container
+            container_url = f"https://graph.facebook.com/{self.graph_version}/{self.ig_user_id}/media"
             container_payload = {
                 "image_url": media_url,
-                "caption": post_caption or "",
+                "caption": caption or "",
                 "access_token": self.access_token,
             }
 
-            container_response = requests.post(container_url, data=container_payload, timeout=30)
-            container_result = container_response.json()
+            resp = httpx.post(container_url, data=container_payload, timeout=30.0)
+            data = resp.json()
 
-            print("======================")
-            print("INSTAGRAM CONTAINER RESPONSE")
-            print(container_result)
-            print("======================")
+            if "id" not in data:
+                err_msg = data.get("error", {}).get("message", str(data))
+                return {"success": False, "error": f"Container failed: {err_msg}"}
 
-            creation_id = container_result.get("id")
+            creation_id = data["id"]
 
-            if not creation_id:
-                return {"success": False, "platform": "instagram", "error": container_result.get("error", container_result)}
+            # 3. Step 2: Wait for Meta to process the image (Wait & Status Check)
+            time.sleep(5)  # 5 seconds wait taaki Meta image process kar le
 
-            publish_url = f"{GRAPH_BASE_URL}/{self.ig_user_id}/media_publish"
-            publish_payload = {"creation_id": creation_id, "access_token": self.access_token}
+            for _ in range(5):
+                status_url = f"https://graph.facebook.com/{self.graph_version}/{creation_id}?fields=status_code&access_token={self.access_token}"
+                status_resp = httpx.get(status_url, timeout=15.0).json()
+                status = status_resp.get("status_code")
+                
+                if status == "FINISHED" or not status:
+                    break
+                elif status == "ERROR":
+                    return {"success": False, "error": "Instagram container processing error"}
+                
+                time.sleep(2)
 
-            publish_response = requests.post(publish_url, data=publish_payload, timeout=30)
-            publish_result = publish_response.json()
+            # 4. Step 3: Publish Container
+            publish_url = f"https://graph.facebook.com/{self.graph_version}/{self.ig_user_id}/media_publish"
+            publish_payload = {
+                "creation_id": creation_id,
+                "access_token": self.access_token,
+            }
 
-            print("======================")
-            print("INSTAGRAM PUBLISH RESPONSE")
-            print(publish_result)
-            print("======================")
+            pub_resp = httpx.post(publish_url, data=publish_payload, timeout=30.0)
+            pub_data = pub_resp.json()
 
-            if "id" not in publish_result:
-                return {"success": False, "platform": "instagram", "error": publish_result.get("error", publish_result)}
+            if "id" not in pub_data:
+                err_msg = pub_data.get("error", {}).get("message", str(pub_data))
+                return {"success": False, "error": f"Publish failed: {err_msg}"}
 
             return {
                 "success": True,
                 "platform": "instagram",
-                "platform_post_id": publish_result["id"],
-                "message": "Instagram post published successfully",
+                "platform_post_id": pub_data["id"]
             }
 
         except Exception as e:
-            return {"success": False, "platform": "instagram", "error": str(e)}
-
-    def delete_post(self, platform_post_id):
-        try:
-            url = f"https://graph.instagram.com/{platform_post_id}"
-            response = requests.delete(url, params={"access_token": self.access_token}, timeout=30)
-            return response.json()
-        except Exception as e:
             return {"success": False, "error": str(e)}
-
-    def refresh_token(self):
-        try:
-            url = "https://graph.instagram.com/refresh_access_token"
-            response = requests.get(
-                url,
-                params={"grant_type": "ig_refresh_token", "access_token": self.access_token},
-                timeout=30,
-            )
-            result = response.json()
-            if "access_token" in result:
-                return {"success": True, "access_token": result["access_token"], "expires_in": result.get("expires_in")}
-            return {"success": False, "error": result}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
-    def fetch_analytics(self, platform_post_id):
-        try:
-            url = f"{GRAPH_BASE_URL}/{platform_post_id}/insights"
-            response = requests.get(
-                url,
-                params={"metric": "reach,impressions,likes,comments,shares,saved", "access_token": self.access_token},
-                timeout=30,
-            )
-            return response.json()
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
-    def disconnect(self):
-        return {"success": True, "message": "Instagram disconnected"}

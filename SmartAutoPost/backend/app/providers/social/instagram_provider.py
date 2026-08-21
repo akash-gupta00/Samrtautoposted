@@ -1,110 +1,123 @@
-import os
 import time
 import requests
-import logging
 
-logger = logging.getLogger(__name__)
 
 class InstagramProvider:
-    DEFAULT_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1080&auto=format&fit=crop&q=80"
+    def __init__(self, access_token: str, ig_user_id: str):
+        self.access_token = str(access_token).strip()
+        self.ig_user_id = str(ig_user_id).strip()
+        self.graph_url = "https://graph.facebook.com/v20.0"
 
-    def __init__(self, *args, **kwargs):
-        # Environment variables se token aur account ID read karein
-        self.access_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
-        self.ig_user_id = os.getenv("INSTAGRAM_USER_ID", "17841479000604439")
-        self.base_url = "https://graph.facebook.com/v26.0"
+    def _is_video(self, url: str) -> bool:
+        """Extension check to detect Video/Reel"""
+        video_extensions = ('.mp4', '.mov', '.avi', '.wmv', '.m4v', '.webm')
+        clean_url = url.split('?')[0].lower()
+        return clean_url.endswith(video_extensions)
 
-        if not self.access_token:
-            logger.error("INSTAGRAM_ACCESS_TOKEN environment variable not set!")
+    def publish_post(self, caption: str, media_url: str = None):
+        """
+        Photo aur Video/Reel dono ko auto-detect karke Instagram par publish karega.
+        """
+        try:
+            if not media_url:
+                return {"success": False, "error": "Instagram requires media (Photo or Video URL)."}
 
-    def _extract_url_and_caption(self, *args, **kwargs):
-        target_image_url = None
-        target_caption = ""
+            is_reel = self._is_video(media_url)
 
-        for key in ["image_url", "media_url", "url", "file_url"]:
-            if key in kwargs and kwargs[key]:
-                val = kwargs[key]
-                if isinstance(val, str) and val.startswith("http"):
-                    target_image_url = val
-                    break
+            # =========================================================
+            # CASE 1: INSTAGRAM REELS (Video Upload)
+            # =========================================================
+            if is_reel:
+                # 1. Reels Container Create karein
+                container_url = f"{self.graph_url}/{self.ig_user_id}/media"
+                payload = {
+                    "media_type": "REELS",
+                    "video_url": media_url,
+                    "caption": caption,
+                    "access_token": self.access_token,
+                }
+                res = requests.post(container_url, data=payload, timeout=30)
+                data = res.json()
 
-        if not target_caption:
-            target_caption = kwargs.get("caption") or kwargs.get("content") or kwargs.get("text") or ""
+                if "error" in data:
+                    return {"success": False, "error": data["error"].get("message", "Reel container creation error")}
 
-        all_items = list(args) + list(kwargs.values())
-        for item in all_items:
-            if isinstance(item, str):
-                if item.startswith("http") and not target_image_url:
-                    target_image_url = item
-                elif not target_caption and not item.startswith("http"):
-                    target_caption = item
-            elif isinstance(item, list) and item:
-                first = item[0]
-                if isinstance(first, str) and first.startswith("http"):
-                    target_image_url = first
-                elif hasattr(first, "url"):
-                    target_image_url = first.url
-                elif isinstance(first, dict):
-                    target_image_url = first.get("url") or first.get("media_url")
-            elif hasattr(item, "url"):
-                target_image_url = item.url
-            elif isinstance(item, dict):
-                if not target_image_url:
-                    target_image_url = item.get("url") or item.get("media_url") or item.get("image_url")
-                if not target_caption:
-                    target_caption = item.get("caption") or item.get("content") or ""
+                creation_id = data.get("id")
 
-        if not target_image_url or not str(target_image_url).startswith("http"):
-            target_image_url = self.DEFAULT_FALLBACK_IMAGE
+                # 2. Meta Video Processing status poll karein (Reels process hone me time leti hai)
+                status_url = f"{self.graph_url}/{creation_id}"
+                max_retries = 20  # Max 60 seconds wait
+                while max_retries > 0:
+                    time.sleep(3)
+                    status_res = requests.get(
+                        status_url,
+                        params={"fields": "status_code", "access_token": self.access_token},
+                        timeout=10
+                    ).json()
+                    
+                    status_code = status_res.get("status_code")
 
-        return target_image_url, str(target_caption or "")
+                    if status_code == "FINISHED":
+                        break
+                    elif status_code == "ERROR":
+                        return {"success": False, "error": "Meta failed to process Reel video."}
+                    
+                    max_retries -= 1
 
-    def publish_post(self, *args, **kwargs):
-        if not self.access_token:
-            raise ValueError("Instagram Access Token is missing in environment variables.")
+                # 3. Reel Publish karein
+                publish_url = f"{self.graph_url}/{self.ig_user_id}/media_publish"
+                pub_res = requests.post(
+                    publish_url,
+                    data={"creation_id": creation_id, "access_token": self.access_token},
+                    timeout=30,
+                )
+                pub_data = pub_res.json()
 
-        target_image_url, target_caption = self._extract_url_and_caption(*args, **kwargs)
+                if "error" in pub_data:
+                    return {"success": False, "error": pub_data["error"].get("message", "Reel publish failed")}
 
-        # 1. Create Media Container
-        container_url = f"{self.base_url}/{self.ig_user_id}/media"
-        container_payload = {
-            "image_url": target_image_url,
-            "caption": target_caption,
-            "access_token": self.access_token
-        }
-        
-        container_res = requests.post(container_url, data=container_payload)
-        container_data = container_res.json()
-        
-        if "id" not in container_data:
-            raise Exception(f"Failed to create media container: {container_data}")
+                return {
+                    "success": True,
+                    "id": pub_data.get("id"),
+                    "platform_post_id": str(pub_data.get("id")),
+                    "media_type": "REELS",
+                }
 
-        creation_id = container_data["id"]
-        time.sleep(4)
+            # =========================================================
+            # CASE 2: SINGLE PHOTO POST
+            # =========================================================
+            else:
+                container_url = f"{self.graph_url}/{self.ig_user_id}/media"
+                payload = {
+                    "image_url": media_url,
+                    "caption": caption,
+                    "access_token": self.access_token,
+                }
+                res = requests.post(container_url, data=payload, timeout=20)
+                data = res.json()
 
-        # 2. Publish Media Container
-        publish_url = f"{self.base_url}/{self.ig_user_id}/media_publish"
-        publish_payload = {
-            "creation_id": creation_id,
-            "access_token": self.access_token
-        }
-        
-        publish_res = requests.post(publish_url, data=publish_payload)
-        publish_data = publish_res.json()
+                if "error" in data:
+                    return {"success": False, "error": data["error"].get("message", "Image container creation error")}
 
-        if "id" not in publish_data:
-            raise Exception(f"Failed to publish post: {publish_data}")
+                creation_id = data.get("id")
 
-        post_id = publish_data["id"]
+                publish_url = f"{self.graph_url}/{self.ig_user_id}/media_publish"
+                pub_res = requests.post(
+                    publish_url,
+                    data={"creation_id": creation_id, "access_token": self.access_token},
+                    timeout=20,
+                )
+                pub_data = pub_res.json()
 
-        return {
-            "status": "success",
-            "is_success": True,
-            "success": True,
-            "id": post_id,
-            "post_id": post_id,
-            "platform_post_id": post_id
-        }
+                if "error" in pub_data:
+                    return {"success": False, "error": pub_data["error"].get("message", "Photo publish failed")}
 
-    def publish(self, *args, **kwargs):
-        return self.publish_post(*args, **kwargs)
+                return {
+                    "success": True,
+                    "id": pub_data.get("id"),
+                    "platform_post_id": str(pub_data.get("id")),
+                    "media_type": "IMAGE",
+                }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}

@@ -4,8 +4,8 @@
 <div class="split">
     <form class="card form-card" id="createPostForm" enctype="multipart/form-data">
         <div class="card-title">
-            <h2>Create a new post</h2>
-            <span class="pill">Draft or schedule</span>
+            <h2>Create a new post / Reel</h2>
+            <span class="pill" id="mediaTypePill">Draft or schedule</span>
         </div>
 
         <label>
@@ -13,11 +13,11 @@
             <select id="socialAccount" required></select>
         </label>
 
-        <!-- Direct Upload & Media Library Option -->
+        <!-- Direct Upload & Media Library Option (Image + Reel Video) -->
         <div style="margin-bottom: 15px;">
-            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Image)</label>
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video)</label>
             <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="file" id="postImageFile" accept="image/*" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" />
+                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" />
                 <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid #cbd5e1; font-size: 12px; cursor: pointer;">
                     📁 Media Library
                 </button>
@@ -28,7 +28,7 @@
 
         <label>
             Title / Topic
-            <input id="postTitle" placeholder="e.g. New Product Launch, Coding Tips">
+            <input id="postTitle" placeholder="e.g. New Product Launch, Python Reel, Coding Tips">
         </label>
 
         <!-- AI Custom Instruction Prompt Box -->
@@ -37,7 +37,7 @@
                 🤖 AI Instruction / Custom Prompt (Optional)
             </label>
             <div style="display: flex; gap: 8px;">
-                <input id="aiCustomPrompt" type="text" placeholder="e.g. Is photo ke liye short & aesthetic caption do ya funny tone me..." style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <input id="aiCustomPrompt" type="text" placeholder="e.g. Is reel/photo ke liye short & aesthetic caption aur hashtags do..." style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
                 <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
                     ✨ Generate with AI
                 </button>
@@ -47,7 +47,7 @@
         <!-- Caption Area -->
         <div>
             <label style="margin-bottom: 6px; font-weight: 600; display: block;">Caption & Hashtags</label>
-            <textarea id="postCaption" rows="5" required placeholder="Upload image, write custom prompt above, then click '✨ Generate with AI'..."></textarea>
+            <textarea id="postCaption" rows="5" required placeholder="Upload media, write custom prompt above, then click '✨ Generate with AI'..."></textarea>
         </div>
 
         <div style="margin-top: 15px;">
@@ -66,8 +66,9 @@
 
     <!-- Live Preview Card -->
     <div class="card preview-card">
-        <div class="card-title">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Live Preview</h2>
+            <span id="previewTag" style="font-size: 11px; background: #e2e8f0; padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: #475569;">PREVIEW</span>
         </div>
         <div class="social-preview">
             <div class="preview-head">
@@ -80,9 +81,10 @@
             <h3 id="previewTitle">Your title</h3>
             <p id="previewCaption" style="white-space: pre-wrap;">Your caption will appear here.</p>
             
-            <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border-radius: 8px; overflow: hidden;">
-                <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 280px; object-fit: cover;" />
-                <span id="previewPlaceholderText">Media preview</span>
+            <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative;">
+                <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 350px; object-fit: cover;" />
+                <video id="livePreviewVideo" src="" controls playsinline style="display: none; width: 100%; max-height: 350px; border-radius: 8px;"></video>
+                <span id="previewPlaceholderText" style="color: #94a3b8;">Media preview (Photo/Reel)</span>
             </div>
 
             <div class="preview-actions">
@@ -133,17 +135,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function isVideoUrlOrFile(nameOrUrl) {
+    if (!nameOrUrl) return false;
+    const clean = nameOrUrl.split('?')[0].toLowerCase();
+    return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.m4v') || clean.endsWith('.webm') || clean.endsWith('.avi');
+}
+
+function updateMediaPreview(src, isVideo = false) {
+    const imgEl = document.getElementById('livePreviewImg');
+    const videoEl = document.getElementById('livePreviewVideo');
+    const placeholder = document.getElementById('previewPlaceholderText');
+    const previewTag = document.getElementById('previewTag');
+
+    placeholder.style.display = 'none';
+
+    if (isVideo) {
+        imgEl.style.display = 'none';
+        videoEl.src = src;
+        videoEl.style.display = 'block';
+        previewTag.innerText = 'REEL / VIDEO';
+        previewTag.style.background = '#f3e8ff';
+        previewTag.style.color = '#7e22ce';
+    } else {
+        videoEl.pause();
+        videoEl.style.display = 'none';
+        imgEl.src = src;
+        imgEl.style.display = 'block';
+        previewTag.innerText = 'PHOTO';
+        previewTag.style.background = '#dbeafe';
+        previewTag.style.color = '#1d4ed8';
+    }
+}
+
 function handleDirectUpload(event) {
     const file = event.target.files[0];
-    const imgEl = document.getElementById('livePreviewImg');
-    const placeholder = document.getElementById('previewPlaceholderText');
     const hiddenId = document.getElementById('selectedMediaId');
 
     if (file) {
         hiddenId.value = '';
-        imgEl.src = URL.createObjectURL(file);
-        imgEl.style.display = 'block';
-        placeholder.style.display = 'none';
+        const isVideo = file.type.startsWith('video/') || isVideoUrlOrFile(file.name);
+        const objUrl = URL.createObjectURL(file);
+        updateMediaPreview(objUrl, isVideo);
     }
 }
 
@@ -164,9 +196,10 @@ async function openMediaLibraryModal() {
 
         grid.innerHTML = items.map(m => {
             const src = m.file_url || m.url || '';
+            const isVid = (m.media_type && m.media_type.toLowerCase() === 'video') || isVideoUrlOrFile(src);
             return `
-                <div onclick="selectLibraryMedia(${m.id}, '${src}')" style="border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px;">
-                    <img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://placehold.co/100x100?text=Error';" />
+                <div onclick="selectLibraryMedia(${m.id}, '${src}', ${isVid})" style="border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px; position: relative; background: #000;">
+                    ${isVid ? `<video src="${src}" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;"></video><span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 4px;">🎬 Reel</span>` : `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://placehold.co/100x100?text=Error';" />`}
                 </div>
             `;
         }).join('');
@@ -179,16 +212,11 @@ function closeMediaModal() {
     document.getElementById('mediaModal').style.display = 'none';
 }
 
-function selectLibraryMedia(id, url) {
+function selectLibraryMedia(id, url, isVideo = false) {
     document.getElementById('selectedMediaId').value = id;
     document.getElementById('postImageFile').value = '';
 
-    const imgEl = document.getElementById('livePreviewImg');
-    const placeholder = document.getElementById('previewPlaceholderText');
-    imgEl.src = url;
-    imgEl.style.display = 'block';
-    placeholder.style.display = 'none';
-
+    updateMediaPreview(url, isVideo);
     closeMediaModal();
     if (typeof showToast === 'function') showToast('Media selected from Library! ✅');
 }
@@ -204,7 +232,7 @@ document.getElementById('postCaption')?.addEventListener('input', (e) => {
     if (el) el.innerText = e.target.value || 'Your caption will appear here.';
 });
 
-// AI Caption Generation with Custom Instruction Prompt
+// AI Caption Generation
 async function generateMagicCaption() {
     const btn = document.getElementById('aiMagicBtn');
     const captionBox = document.getElementById('postCaption');
@@ -228,16 +256,16 @@ async function generateMagicCaption() {
             finalPrompt = customInstruction;
             if (currentCaption) finalPrompt += ` (Previous draft: "${currentCaption}")`;
         } else if (titleText) {
-            finalPrompt = `Write an engaging caption for: ${titleText}`;
+            finalPrompt = `Write an engaging caption and hashtags for: ${titleText}`;
         } else {
-            finalPrompt = "Write an engaging social media caption with trending hashtags for this image.";
+            finalPrompt = "Write an engaging Instagram reel/post caption with trending hashtags.";
         }
         
         formData.append('prompt', finalPrompt);
         formData.append('platform', 'Instagram');
         formData.append('generation_type', 'caption');
 
-        if (fileInput.files && fileInput.files[0]) {
+        if (fileInput.files && fileInput.files[0] && fileInput.files[0].type.startsWith('image/')) {
             formData.append('image', fileInput.files[0]);
         }
 
@@ -263,7 +291,7 @@ async function generateMagicCaption() {
     }
 }
 
-// Resolve & Upload Media IDs (Fixes "mediaIds is not defined")
+// Resolve & Upload Media IDs
 async function resolveMediaIds() {
     const fileInput = document.getElementById('postImageFile');
     const selectedId = document.getElementById('selectedMediaId').value;
@@ -272,7 +300,7 @@ async function resolveMediaIds() {
     if (selectedId) {
         mediaIdsList.push(Number(selectedId));
     } else if (fileInput.files && fileInput.files[0]) {
-        if (typeof showToast === 'function') showToast('Uploading media...');
+        if (typeof showToast === 'function') showToast('Uploading media file...');
         const mediaForm = new FormData();
         mediaForm.append('file', fileInput.files[0]);
 
@@ -289,7 +317,7 @@ async function resolveMediaIds() {
     return mediaIdsList;
 }
 
-// Schedule & Create Post (Form Submit)
+// Save / Schedule Form Submit
 document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -300,7 +328,7 @@ document.getElementById('createPostForm')?.addEventListener('submit', async (e) 
     try {
         const mediaIdsList = await resolveMediaIds();
         if (mediaIdsList.length === 0) {
-            return showToast('Please select or upload an image first', true);
+            return showToast('Please select or upload a photo/video first', true);
         }
 
         const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
@@ -328,7 +356,7 @@ document.getElementById('createPostForm')?.addEventListener('submit', async (e) 
     }
 });
 
-// Direct Publish Button
+// Direct Publish Button (Photos & Reels)
 async function publishDirectly() {
     if (!orgId()) return showToast('Select organization first', true);
     const socialAcc = document.getElementById('socialAccount');
@@ -337,10 +365,10 @@ async function publishDirectly() {
     try {
         const mediaIdsList = await resolveMediaIds();
         if (mediaIdsList.length === 0) {
-            return showToast('Please select or upload an image first', true);
+            return showToast('Please select or upload a photo/video first', true);
         }
 
-        if (typeof showToast === 'function') showToast('Publishing post...');
+        if (typeof showToast === 'function') showToast('Publishing post / Reel to Instagram... 🚀');
         const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
         const captionVal = document.getElementById('postCaption')?.value.trim() || '';
 
@@ -357,7 +385,7 @@ async function publishDirectly() {
         });
 
         await api(`/posts/${post.id}/publish`, { method: 'POST' });
-        if (typeof showToast === 'function') showToast('Post published successfully! 🎉');
+        if (typeof showToast === 'function') showToast('Published successfully to Instagram! 🎉');
         setTimeout(() => location.href = '/posts', 1000);
     } catch (err) {
         if (typeof showToast === 'function') showToast(err.message || 'Publish failed', true);

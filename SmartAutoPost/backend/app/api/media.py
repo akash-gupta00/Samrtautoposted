@@ -1,56 +1,86 @@
-from typing import List
-from fastapi import APIRouter, Depends, UploadFile, File
+import os
+import shutil
+import uuid
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
+from app.models.media import Media
 from app.models.user import User
-from app.schemas.media import MediaResponse
-from app.services.media_service import MediaService
 
-router = APIRouter(
-    prefix="/media",
-    tags=["Media"]
-)
+router = APIRouter(prefix="/media", tags=["Media"])
+
+UPLOAD_DIR = "uploads/media"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {
+    # Images
+    "jpg", "jpeg", "png", "webp", "gif",
+    # Videos / Reels
+    "mp4", "mov", "avi", "m4v", "webm"
+}
+
+
+@router.post("/upload")
+async def upload_media(
+    request: Request,
+    file: UploadFile = File(...),
+    organization_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format .{ext}. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    # Unique file name generate karein
+    unique_filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Public Accessible Base URL
+    base_url = str(request.base_url).rstrip("/")
+    # Render reverse proxy / HTTPS compatibility
+    if "onrender.com" in base_url and base_url.startswith("http://"):
+        base_url = base_url.replace("http://", "https://")
+
+    public_url = f"{base_url}/uploads/media/{unique_filename}"
+    media_type = "video" if ext in ["mp4", "mov", "avi", "m4v", "webm"] else "image"
+
+    media_obj = Media(
+        organization_id=organization_id or (current_user.organization_id if hasattr(current_user, "organization_id") else 1),
+        file_name=file.filename,
+        file_path=file_path,
+        url=public_url,
+        media_type=media_type,
+    )
+    db.add(media_obj)
+    db.commit()
+    db.refresh(media_obj)
+
+    return {
+        "id": media_obj.id,
+        "url": public_url,
+        "media_type": media_type,
+        "filename": unique_filename,
+    }
 
 
 @router.get("/")
-def media_home():
-    return {"message": "Media API Working"}
-
-
-# Media upload API: POST /api/v1/media/upload?organization_id=1
-@router.post("/upload", response_model=MediaResponse)
-def upload_media(
-    organization_id: int,
-    file: UploadFile = File(...),
+def get_all_media(
+    organization_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    media_service = MediaService(db)
-    return media_service.upload_media(
-        file=file,
-        organization_id=organization_id
-    )
-
-
-# Media list API: GET /api/v1/media/list?organization_id=1
-@router.get("/list", response_model=List[MediaResponse])
-def list_media(
-    organization_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    media_service = MediaService(db)
-    return media_service.list_media(organization_id)
-
-
-# Media delete API: DELETE /api/v1/media/{media_id}
-@router.delete("/{media_id}")
-def delete_media(
-    media_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    media_service = MediaService(db)
-    return media_service.delete_media(media_id)
+    query = db.query(Media)
+    if organization_id:
+        query = query.filter(Media.organization_id == organization_id)
+    return query.order_by(Media.id.desc()).all()

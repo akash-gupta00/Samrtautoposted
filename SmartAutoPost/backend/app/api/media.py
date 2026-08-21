@@ -48,20 +48,31 @@ async def upload_media(
 
     # Public Accessible Base URL
     base_url = str(request.base_url).rstrip("/")
-    # Render reverse proxy / HTTPS compatibility
     if "onrender.com" in base_url and base_url.startswith("http://"):
         base_url = base_url.replace("http://", "https://")
 
     public_url = f"{base_url}/uploads/media/{unique_filename}"
     media_type = "video" if ext in ["mp4", "mov", "avi", "m4v", "webm"] else "image"
+    org_id = organization_id or getattr(current_user, "organization_id", 1) or 1
 
-    media_obj = Media(
-        organization_id=organization_id or (current_user.organization_id if hasattr(current_user, "organization_id") else 1),
-        file_name=file.filename,
-        file_path=file_path,
-        url=public_url,
-        media_type=media_type,
-    )
+    # Safe model instantiation (Dynamic column check to prevent TypeError)
+    media_kwargs = {}
+    if hasattr(Media, "organization_id"):
+        media_kwargs["organization_id"] = org_id
+    if hasattr(Media, "url"):
+        media_kwargs["url"] = public_url
+    if hasattr(Media, "file_url"):
+        media_kwargs["file_url"] = public_url
+    if hasattr(Media, "file_path"):
+        media_kwargs["file_path"] = file_path
+    if hasattr(Media, "filename"):
+        media_kwargs["filename"] = file.filename
+    elif hasattr(Media, "file_name"):
+        media_kwargs["file_name"] = file.filename
+    if hasattr(Media, "media_type"):
+        media_kwargs["media_type"] = media_type
+
+    media_obj = Media(**media_kwargs)
     db.add(media_obj)
     db.commit()
     db.refresh(media_obj)
@@ -69,11 +80,13 @@ async def upload_media(
     return {
         "id": media_obj.id,
         "url": public_url,
+        "file_url": public_url,
         "media_type": media_type,
         "filename": unique_filename,
     }
 
 
+@router.get("/list")
 @router.get("/")
 def get_all_media(
     organization_id: Optional[int] = None,
@@ -81,6 +94,6 @@ def get_all_media(
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Media)
-    if organization_id:
+    if organization_id and hasattr(Media, "organization_id"):
         query = query.filter(Media.organization_id == organization_id)
     return query.order_by(Media.id.desc()).all()

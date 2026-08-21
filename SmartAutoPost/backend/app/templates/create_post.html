@@ -15,15 +15,21 @@
 
         <label>
             Title
-            <input id="postTitle" required placeholder="Campaign title">
+            <input id="postTitle" required placeholder="Campaign title (e.g. Coding Tips, Morning Vibes)">
         </label>
 
-        <label>
-            Caption
-            <textarea id="postCaption" rows="8" required placeholder="Write your caption..."></textarea>
-        </label>
+        <!-- Caption Section with AI Magic Button -->
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin: 0; font-weight: 600;">Caption</label>
+                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(99,102,241,0.2);">
+                    <span>✨ Generate with AI</span>
+                </button>
+            </div>
+            <textarea id="postCaption" rows="8" required placeholder="Write your caption or click '✨ Generate with AI'..."></textarea>
+        </div>
 
-        <div class="two-col">
+        <div class="two-col" style="margin-top: 15px;">
             <label>
                 Schedule date
                 <input id="scheduledAt" type="datetime-local">
@@ -34,7 +40,7 @@
             </label>
         </div>
 
-        <div class="actions" style="display: flex; gap: 10px; align-items: center; justify-content: flex-end;">
+        <div class="actions" style="display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 20px;">
             <button class="btn ghost" type="button" onclick="location.href='/posts'">Cancel</button>
             <button class="btn" type="button" style="background:#16a34a; color:#fff; font-weight:600;" onclick="publishDirectly()">Publish Now 🚀</button>
             <button class="btn primary" type="submit">Create post</button>
@@ -54,7 +60,7 @@
                 </div>
             </div>
             <h3 id="previewTitle">Your title</h3>
-            <p id="previewCaption">Your caption will appear here.</p>
+            <p id="previewCaption" style="white-space: pre-wrap;">Your caption will appear here.</p>
             <div class="preview-image">Media preview</div>
             <div class="preview-actions">
                 <span>♡ Like</span>
@@ -68,6 +74,70 @@
 
 {% block scripts %}
 <script>
+// Real-time Preview Sync
+document.getElementById('postTitle')?.addEventListener('input', (e) => {
+    const el = document.getElementById('previewTitle');
+    if (el) el.innerText = e.target.value || 'Your title';
+});
+
+document.getElementById('postCaption')?.addEventListener('input', (e) => {
+    const el = document.getElementById('previewCaption');
+    if (el) el.innerText = e.target.value || 'Your caption will appear here.';
+});
+
+// Magic AI Caption Generator Function
+async function generateMagicCaption() {
+    const btn = document.getElementById('aiMagicBtn');
+    const captionBox = document.getElementById('postCaption');
+    const titleInput = document.getElementById('postTitle');
+    const previewCaption = document.getElementById('previewCaption');
+    
+    const contextPrompt = titleInput.value.trim() || captionBox.value.trim() || 'Create an engaging, viral post caption with emojis and hashtags';
+    
+    const originalBtnHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Generating...</span>';
+    
+    try {
+        const formData = new FormData();
+        formData.append('prompt', contextPrompt);
+        formData.append('platform', 'Instagram');
+        formData.append('generation_type', 'caption');
+
+        const res = await fetch('/api/v1/ai/caption', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+        
+        if (!res.ok) {
+            throw new Error(data.detail || 'AI generation failed');
+        }
+
+        const generatedText = data.caption || data.result || data.content || '';
+        if (generatedText) {
+            captionBox.value = generatedText;
+            if (previewCaption) {
+                previewCaption.innerText = generatedText;
+            }
+            if (typeof showToast === 'function') {
+                showToast('AI Caption generated! ✨');
+            }
+        }
+    } catch (err) {
+        if (typeof showToast === 'function') {
+            showToast(err.message || 'Failed to generate AI caption', true);
+        } else {
+            alert('AI Generation Error: ' + err.message);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+    }
+}
+
+// Publish Directly Function
 async function publishDirectly() {
     if (!orgId()) {
         showToast('Create an organization first', true);

@@ -1,54 +1,66 @@
-import os
-import google.generativeai as genai
-from app.core.config import settings
-from app.schemas.gemini import GeminiRequest
+from typing import Optional
+from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException, Request
+from sqlalchemy.orm import Session
 
-# API key configure karein
-api_key = getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+from app.database.session import get_db
+from app.dependencies.auth import get_current_user
+from app.models.user import User
+from app.schemas.gemini import GeminiRequest, GeminiResponse
+from app.services.gemini_service import GeminiService
+
+# Router export name strictly 'router' hona chahiye
+router = APIRouter(
+    prefix="/ai",
+    tags=["AI Content"]
+)
+
+service = GeminiService()
 
 
-class GeminiService:
-    def __init__(self):
-        # Universal multimodal model
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+@router.post("/generate", response_model=GeminiResponse)
+def generate_content(
+    req: GeminiRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        text = service.generate(req)
+        return GeminiResponse(result=text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    def generate(self, req: GeminiRequest, image_bytes: bytes = None, mime_type: str = "image/jpeg", **kwargs):
-        """
-        Text & Image dono ko handle karta hai bina crash huye.
-        """
-        task = getattr(req, "task_type", "caption")
-        platform = getattr(req, "platform", "Instagram")
-        user_keyword = getattr(req, "keyword", "") or "Engaging post"
 
-        prompt_text = (
-            f"You are a social media expert. Task: {task}. "
-            f"Platform: {platform}. "
-            f"User context/prompt: {user_keyword}. "
-            f"Generate a catchy, viral caption with relevant trending hashtags for this post."
+@router.post("/caption")
+async def generate_caption_endpoint(
+    request: Request,
+    prompt: Optional[str] = Form(None),
+    platform: Optional[str] = Form("Instagram"),
+    generation_type: Optional[str] = Form("caption"),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    try:
+        user_prompt = prompt or "Create an engaging post caption with relevant hashtags."
+        gemini_req = GeminiRequest(
+            task_type=generation_type or "caption",
+            platform=platform or "Instagram",
+            language="en",
+            keyword=user_prompt,
         )
 
-        try:
-            content_parts = [prompt_text]
+        image_bytes = None
+        mime_type = "image/jpeg"
+        if image:
+            image_bytes = await image.read()
+            mime_type = image.content_type or "image/jpeg"
 
-            # Agar image aayi ho toh Gemini part format me attach karein
-            if image_bytes and len(image_bytes) > 0:
-                content_parts.append({
-                    "mime_type": mime_type or "image/jpeg",
-                    "data": image_bytes
-                })
+        result = service.generate(gemini_req, image_bytes=image_bytes, mime_type=mime_type)
+        caption_text = getattr(result, "result", str(result))
 
-            response = self.model.generate_content(content_parts)
-            
-            if hasattr(response, "text") and response.text:
-                return response.text.strip()
-            return str(response)
-
-        except Exception as e:
-            # Safe Fallback caption agar Gemini API me error aaye
-            return (
-                f"✨ Level up your feed! 🚀\n\n"
-                f"{user_keyword}\n\n"
-                f"#trending #viral #growth #{platform.lower()}post #explore"
-            )
+        return {
+            "status": "success",
+            "caption": caption_text,
+            "result": caption_text
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

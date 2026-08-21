@@ -21,7 +21,6 @@ class PublisherService:
         try:
             # 1. Social account verify karein
             if not post.social_account_id:
-                # Agar post me directly social_account_id na ho toh org ka active account lein
                 account = (
                     db.query(SocialAccount)
                     .filter(
@@ -65,20 +64,37 @@ class PublisherService:
             if not result:
                 result = {"success": False, "error": "Publishing service unavailable"}
 
+            # Platform Media ID extract karein
+            platform_id = (
+                result.get("platform_post_id") 
+                or result.get("instagram_post_id") 
+                or result.get("media_id") 
+                or result.get("id")
+            )
+
             # 3. Publish log record save karein
             publish_log = PublishLog(
                 post_id=post.id,
                 platform=result.get("platform", getattr(account, "provider", "instagram")),
-                platform_post_id=result.get("platform_post_id") or result.get("instagram_post_id"),
+                platform_post_id=str(platform_id) if platform_id else None,
                 status="published" if result.get("success") else "failed",
                 response=str(result),
             )
             db.add(publish_log)
 
-            # 4. Status update karein
+            # 4. Post Table me ID & Status update karein
             if result.get("success"):
                 post.status = "published"
                 post.published_at = datetime.now()
+                
+                # Direct Post model fields check & assign
+                if platform_id:
+                    if hasattr(post, "platform_post_id"):
+                        post.platform_post_id = str(platform_id)
+                    if hasattr(post, "ig_media_id"):
+                        post.ig_media_id = str(platform_id)
+                    if hasattr(post, "external_id"):
+                        post.external_id = str(platform_id)
             else:
                 post.status = "failed"
 

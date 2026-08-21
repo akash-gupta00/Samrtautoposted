@@ -1,59 +1,54 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile, Form
-from sqlalchemy.orm import Session
-
-from app.database.session import get_db
+import os
+import google.generativeai as genai
+from app.core.config import settings
 from app.schemas.gemini import GeminiRequest
-from app.services.gemini_service import GeminiService
 
-router = APIRouter(
-    prefix="/ai",
-    tags=["AI Gemini"],
-)
-
-service = GeminiService()
+# API key configure karein
+api_key = getattr(settings, "GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
 
 
-@router.post("/caption")
-async def generate_caption_endpoint(
-    request: Request,
-    prompt: Optional[str] = Form(None),
-    platform: Optional[str] = Form("Instagram"),
-    generation_type: Optional[str] = Form("caption"),
-    image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-):
-    """
-    Image & Context Prompt dono analyze karke Caption & Hashtags generate karta hai.
-    """
-    try:
-        user_prompt = prompt or "Create an engaging post caption with relevant hashtags."
+class GeminiService:
+    def __init__(self):
+        # Universal multimodal model
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
 
-        gemini_req = GeminiRequest(
-            task_type=generation_type or "caption",
-            platform=platform or "Instagram",
-            language="en",
-            keyword=user_prompt,
+    def generate(self, req: GeminiRequest, image_bytes: bytes = None, mime_type: str = "image/jpeg", **kwargs):
+        """
+        Text & Image dono ko handle karta hai bina crash huye.
+        """
+        task = getattr(req, "task_type", "caption")
+        platform = getattr(req, "platform", "Instagram")
+        user_keyword = getattr(req, "keyword", "") or "Engaging post"
+
+        prompt_text = (
+            f"You are a social media expert. Task: {task}. "
+            f"Platform: {platform}. "
+            f"User context/prompt: {user_keyword}. "
+            f"Generate a catchy, viral caption with relevant trending hashtags for this post."
         )
 
-        image_bytes = None
-        mime_type = "image/jpeg"
-        if image:
-            image_bytes = await image.read()
-            mime_type = image.content_type or "image/jpeg"
+        try:
+            content_parts = [prompt_text]
 
-        result = service.generate(gemini_req, image_bytes=image_bytes, mime_type=mime_type)
-        caption_text = getattr(result, "result", str(result))
+            # Agar image aayi ho toh Gemini part format me attach karein
+            if image_bytes and len(image_bytes) > 0:
+                content_parts.append({
+                    "mime_type": mime_type or "image/jpeg",
+                    "data": image_bytes
+                })
 
-        return {
-            "status": "success",
-            "caption": caption_text,
-            "content": caption_text,
-            "result": caption_text,
-        }
+            response = self.model.generate_content(content_parts)
+            
+            if hasattr(response, "text") and response.text:
+                return response.text.strip()
+            return str(response)
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Caption generation failed: {str(e)}"
-        )
+        except Exception as e:
+            # Safe Fallback caption agar Gemini API me error aaye
+            return (
+                f"✨ Level up your feed! 🚀\n\n"
+                f"{user_keyword}\n\n"
+                f"#trending #viral #growth #{platform.lower()}post #explore"
+            )

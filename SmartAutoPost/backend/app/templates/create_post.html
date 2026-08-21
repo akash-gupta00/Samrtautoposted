@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="split">
-    <form class="card form-card" id="createPostForm">
+    <form class="card form-card" id="createPostForm" enctype="multipart/form-data">
         <div class="card-title">
             <h2>Create a new post</h2>
             <span class="pill">Draft or schedule</span>
@@ -13,30 +13,39 @@
             <select id="socialAccount" required></select>
         </label>
 
-        <label>
-            Title
-            <input id="postTitle" required placeholder="Campaign title (e.g. Coding Tips, Morning Vibes)">
-        </label>
-
-        <!-- Caption Section with AI Magic Button -->
-        <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <label style="margin: 0; font-weight: 600;">Caption</label>
-                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(99,102,241,0.2);">
-                    <span>✨ Generate with AI</span>
+        <!-- Direct Upload & Media Library Option -->
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Image)</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="file" id="postImageFile" accept="image/*" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" />
+                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid #cbd5e1; font-size: 12px; cursor: pointer;">
+                    📁 Media Library
                 </button>
             </div>
-            <textarea id="postCaption" rows="8" required placeholder="Write your caption or click '✨ Generate with AI'..."></textarea>
+            <!-- Background ID storage -->
+            <input type="hidden" id="selectedMediaId" value="">
         </div>
 
-        <div class="two-col" style="margin-top: 15px;">
+        <label>
+            Title / Topic
+            <input id="postTitle" placeholder="e.g. New Product Launch, Coding Tips">
+        </label>
+
+        <!-- Caption Area with AI Magic Button -->
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label style="margin: 0; font-weight: 600;">Caption & Hashtags</label>
+                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    ✨ Generate with AI
+                </button>
+            </div>
+            <textarea id="postCaption" rows="5" required placeholder="Upload image or write topic, then click '✨ Generate with AI'..."></textarea>
+        </div>
+
+        <div style="margin-top: 15px;">
             <label>
-                Schedule date
+                Schedule date (Optional)
                 <input id="scheduledAt" type="datetime-local">
-            </label>
-            <label>
-                Media IDs
-                <input id="mediaIds" placeholder="e.g. 1,2,3">
             </label>
         </div>
 
@@ -47,6 +56,7 @@
         </div>
     </form>
 
+    <!-- Live Preview Card -->
     <div class="card preview-card">
         <div class="card-title">
             <h2>Live Preview</h2>
@@ -61,7 +71,12 @@
             </div>
             <h3 id="previewTitle">Your title</h3>
             <p id="previewCaption" style="white-space: pre-wrap;">Your caption will appear here.</p>
-            <div class="preview-image">Media preview</div>
+            
+            <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border-radius: 8px; overflow: hidden;">
+                <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 280px; object-fit: cover;" />
+                <span id="previewPlaceholderText">Media preview</span>
+            </div>
+
             <div class="preview-actions">
                 <span>♡ Like</span>
                 <span>◯ Comment</span>
@@ -70,11 +85,84 @@
         </div>
     </div>
 </div>
+
+<!-- Media Library Modal -->
+<div id="mediaModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: #fff; width: 90%; max-width: 600px; border-radius: 12px; padding: 20px; max-height: 80vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Select from Media Library</h3>
+            <button type="button" onclick="closeMediaModal()" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="modalMediaGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; padding: 5px;">
+            <p style="color: #64748b;">Loading media...</p>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Real-time Preview Sync
+function handleDirectUpload(event) {
+    const file = event.target.files[0];
+    const imgEl = document.getElementById('livePreviewImg');
+    const placeholder = document.getElementById('previewPlaceholderText');
+    const hiddenId = document.getElementById('selectedMediaId');
+
+    if (file) {
+        hiddenId.value = '';
+        imgEl.src = URL.createObjectURL(file);
+        imgEl.style.display = 'block';
+        placeholder.style.display = 'none';
+    }
+}
+
+async function openMediaLibraryModal() {
+    const modal = document.getElementById('mediaModal');
+    const grid = document.getElementById('modalMediaGrid');
+    modal.style.display = 'flex';
+    grid.innerHTML = '<p>Loading your media...</p>';
+
+    try {
+        const res = await api(`/media/list?organization_id=${orgId()}`);
+        const items = Array.isArray(res) ? res : (res.items || []);
+        
+        if (items.length === 0) {
+            grid.innerHTML = '<p>No media files found in Media Library.</p>';
+            return;
+        }
+
+        grid.innerHTML = items.map(m => {
+            const src = m.file_url || m.url || '';
+            return `
+                <div onclick="selectLibraryMedia(${m.id}, '${src}')" style="border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px;">
+                    <img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://placehold.co/100x100?text=Error';" />
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        grid.innerHTML = `<p style="color: red;">Failed to load media: ${err.message}</p>`;
+    }
+}
+
+function closeMediaModal() {
+    document.getElementById('mediaModal').style.display = 'none';
+}
+
+function selectLibraryMedia(id, url) {
+    document.getElementById('selectedMediaId').value = id;
+    document.getElementById('postImageFile').value = '';
+
+    const imgEl = document.getElementById('livePreviewImg');
+    const placeholder = document.getElementById('previewPlaceholderText');
+    imgEl.src = url;
+    imgEl.style.display = 'block';
+    placeholder.style.display = 'none';
+
+    closeMediaModal();
+    if (typeof showToast === 'function') showToast('Media selected from Library! ✅');
+}
+
+// Live Text Sync
 document.getElementById('postTitle')?.addEventListener('input', (e) => {
     const el = document.getElementById('previewTitle');
     if (el) el.innerText = e.target.value || 'Your title';
@@ -85,24 +173,29 @@ document.getElementById('postCaption')?.addEventListener('input', (e) => {
     if (el) el.innerText = e.target.value || 'Your caption will appear here.';
 });
 
-// Magic AI Caption Generator Function
+// AI Caption
 async function generateMagicCaption() {
     const btn = document.getElementById('aiMagicBtn');
     const captionBox = document.getElementById('postCaption');
     const titleInput = document.getElementById('postTitle');
+    const fileInput = document.getElementById('postImageFile');
     const previewCaption = document.getElementById('previewCaption');
-    
-    const contextPrompt = titleInput.value.trim() || captionBox.value.trim() || 'Create an engaging, viral post caption with emojis and hashtags';
-    
+
     const originalBtnHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span>⏳ Generating...</span>';
-    
+
     try {
         const formData = new FormData();
-        formData.append('prompt', contextPrompt);
+        const userPrompt = titleInput.value.trim() || captionBox.value.trim() || "Write an engaging social media caption with trending hashtags.";
+        
+        formData.append('prompt', userPrompt);
         formData.append('platform', 'Instagram');
         formData.append('generation_type', 'caption');
+
+        if (fileInput.files && fileInput.files[0]) {
+            formData.append('image', fileInput.files[0]);
+        }
 
         const res = await fetch('/api/v1/ai/caption', {
             method: 'POST',
@@ -110,54 +203,53 @@ async function generateMagicCaption() {
         });
 
         const data = await res.json();
-        
-        if (!res.ok) {
-            throw new Error(data.detail || 'AI generation failed');
-        }
+        if (!res.ok) throw new Error(data.detail || 'AI generation failed');
 
-        const generatedText = data.caption || data.result || data.content || '';
+        const generatedText = data.caption || data.result || '';
         if (generatedText) {
             captionBox.value = generatedText;
-            if (previewCaption) {
-                previewCaption.innerText = generatedText;
-            }
-            if (typeof showToast === 'function') {
-                showToast('AI Caption generated! ✨');
-            }
+            if (previewCaption) previewCaption.innerText = generatedText;
+            if (typeof showToast === 'function') showToast('AI Caption generated! ✨');
         }
     } catch (err) {
-        if (typeof showToast === 'function') {
-            showToast(err.message || 'Failed to generate AI caption', true);
-        } else {
-            alert('AI Generation Error: ' + err.message);
-        }
+        if (typeof showToast === 'function') showToast(err.message, true);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;
     }
 }
 
-// Publish Directly Function
+// Publish Directly
 async function publishDirectly() {
-    if (!orgId()) {
-        showToast('Create an organization first', true);
-        return;
-    }
+    if (!orgId()) return showToast('Select organization first', true);
     const socialAcc = document.getElementById('socialAccount');
-    if (!socialAcc || !Number(socialAcc.value)) {
-        showToast('Connect and select a social account first', true);
-        return;
-    }
-    const mediaInput = document.getElementById('mediaIds');
-    if (!mediaInput || !mediaInput.value.trim()) {
-        showToast('Instagram ke liye Media ID dalna zaroori hai', true);
-        return;
-    }
+    if (!socialAcc || !Number(socialAcc.value)) return showToast('Select a social account', true);
+
+    const fileInput = document.getElementById('postImageFile');
+    const selectedId = document.getElementById('selectedMediaId').value;
+    let mediaIdsList = [];
+
+    if (selectedId) mediaIdsList.push(Number(selectedId));
 
     try {
-        showToast('Publishing to Instagram...');
-        const media = mediaInput.value.split(',').map(x => Number(x.trim())).filter(Boolean);
-        const titleVal = document.getElementById('postTitle')?.value.trim() || 'Instagram Post';
+        if (fileInput.files && fileInput.files[0] && mediaIdsList.length === 0) {
+            showToast('Uploading media...');
+            const mediaForm = new FormData();
+            mediaForm.append('file', fileInput.files[0]);
+
+            const uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgId()}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` },
+                body: mediaForm
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadData && uploadData.id) mediaIdsList.push(uploadData.id);
+        }
+
+        if (mediaIdsList.length === 0) return showToast('Please select or upload an image first', true);
+
+        showToast('Publishing post...');
+        const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
         const captionVal = document.getElementById('postCaption')?.value.trim() || '';
 
         const post = await api('/posts/', {
@@ -168,15 +260,15 @@ async function publishDirectly() {
                 title: titleVal,
                 caption: captionVal,
                 scheduled_at: null,
-                media_ids: media
+                media_ids: mediaIdsList
             })
         });
 
         await api(`/posts/${post.id}/publish`, { method: 'POST' });
-        showToast('Post published successfully to Instagram! 🎉');
+        showToast('Post published successfully! 🎉');
         setTimeout(() => location.href = '/posts', 1000);
     } catch (err) {
-        showToast(err.message || 'Direct publish failed', true);
+        showToast(err.message || 'Publish failed', true);
     }
 }
 </script>

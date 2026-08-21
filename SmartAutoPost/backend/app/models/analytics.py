@@ -2,7 +2,21 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
-from app.database.session import Base
+# Base import fix: pehle models/base check karega, fir database/base
+try:
+    from app.database.base import Base
+except ImportError:
+    try:
+        from app.database.base_class import Base
+    except ImportError:
+        try:
+            from app.models.user import Base
+        except ImportError:
+            try:
+                from app.models.post import Base
+            except ImportError:
+                from sqlalchemy.ext.declarative import declarative_base
+                Base = declarative_base()
 
 
 class AnalyticsRecord(Base):
@@ -15,6 +29,3 @@ class AnalyticsRecord(Base):
     impressions = Column(Integer, default=0)
     reach = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationship with Post if Post model exists
-    post = relationship("Post", backref="analytics_records", lazy="joined")

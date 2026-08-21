@@ -220,7 +220,7 @@ class PostService:
             permission_name="publish.post",
         )
 
-        if post.status == PostStatus.PUBLISHED.value:
+        if post.status == PostStatus.PUBLISHED.value and getattr(post, "platform_post_id", None):
             raise HTTPException(
                 status_code=400,
                 detail="Post is already published",
@@ -244,6 +244,21 @@ class PostService:
                 detail=result.get("error", "Publishing failed"),
             )
 
+        # Meta Platform ID Save karna
+        ig_post_id = (
+            result.get("instagram_post_id") 
+            or result.get("post_id") 
+            or result.get("media_id") 
+            or result.get("id")
+        )
+
+        if hasattr(post, "platform_post_id"):
+            post.platform_post_id = str(ig_post_id)
+        elif hasattr(post, "ig_media_id"):
+            post.ig_media_id = str(ig_post_id)
+        elif hasattr(post, "external_id"):
+            post.external_id = str(ig_post_id)
+
         post.status = PostStatus.PUBLISHED.value
         db.commit()
         db.refresh(post)
@@ -257,7 +272,7 @@ class PostService:
             post_id=post.id,
             details={
                 "platform": "instagram",
-                "instagram_post_id": result.get("instagram_post_id"),
+                "instagram_post_id": ig_post_id,
             },
         )
 
@@ -379,7 +394,7 @@ class PostService:
         return post
 
     # =========================================================
-    # DELETE POST (With Foreign Key Cascade Cleanup)
+    # DELETE POST
     # =========================================================
     def delete_post(
         self,
@@ -417,14 +432,14 @@ class PostService:
                 details={"title": post.title, "status": post.status},
             )
 
-            # Foreign key tables se post_id ke records pehle delete karna
+            # Foreign key cleanup
             db.execute(text("DELETE FROM publish_logs WHERE post_id = :pid"), {"pid": deleted_post_id})
             db.execute(text("DELETE FROM post_schedules WHERE post_id = :pid"), {"pid": deleted_post_id})
             db.execute(text("DELETE FROM post_analytics WHERE post_id = :pid"), {"pid": deleted_post_id})
             db.execute(text("DELETE FROM post_media WHERE post_id = :pid"), {"pid": deleted_post_id})
             db.commit()
 
-            # Main post record delete karna
+            # Delete main post
             db.execute(text("DELETE FROM posts WHERE id = :pid"), {"pid": deleted_post_id})
             db.commit()
 

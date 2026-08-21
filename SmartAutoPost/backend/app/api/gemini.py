@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
 
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
@@ -24,6 +26,53 @@ router = APIRouter(
 service = GeminiService()
 
 
+class CaptionPayload(BaseModel):
+    prompt: Optional[str] = None
+    topic: Optional[str] = None
+    platform: Optional[str] = "instagram"
+    tone: Optional[str] = "engaging"
+    keyword: Optional[str] = None
+
+
+@router.post("/caption")
+def generate_caption_endpoint(
+    data: CaptionPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Frontend ke AI Studio (/api/v1/ai/caption) ko handle karta hai.
+    """
+    try:
+        user_prompt = data.prompt or data.topic or data.keyword or "Great post"
+
+        # Gemini service request create kar rahe hain
+        gemini_req = GeminiRequest(
+            task_type="caption",
+            platform=data.platform or "instagram",
+            language="en",
+            keyword=user_prompt
+        )
+
+        result = service.generate(gemini_req)
+        caption_text = getattr(result, "result", str(result))
+
+        return {
+            "status": "success",
+            "caption": caption_text,
+            "content": caption_text,
+            "result": caption_text,
+            "data": caption_text
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Caption generation failed: {str(e)}"
+        )
+
+
 @router.post(
     "/gemini-generate",
     response_model=GeminiResponse,
@@ -36,17 +85,11 @@ def gemini_generate(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Gemini se content generate karega.
-
-    Successful aur failed AI generation database me save karega.
-    Saath me audit log bhi create karega.
+    Gemini se content generate karega aur logs save karega.
     """
-
     try:
-        # Gemini API se content generate kar rahe hain.
         result = service.generate(data)
 
-        # Successful generation history save kar rahe hain.
         generation_log = AIGeneration(
             user_id=current_user.id,
             organization_id=organization_id,
@@ -62,7 +105,6 @@ def gemini_generate(
         db.commit()
         db.refresh(generation_log)
 
-        # Successful AI generation ka audit log.
         AuditLogService.create_log(
             db=db,
             audit_data=AuditLogCreate(
@@ -90,56 +132,7 @@ def gemini_generate(
         return result
 
     except Exception as e:
-        # Failed generation ka database record.
-        failed_log = None
-
-        try:
-            db.rollback()
-
-            failed_log = AIGeneration(
-                user_id=current_user.id,
-                organization_id=organization_id,
-                generation_type=data.task_type,
-                platform=data.platform,
-                prompt=data.keyword,
-                generated_content=None,
-                status="failed",
-                error_message=str(e),
-            )
-
-            db.add(failed_log)
-            db.commit()
-            db.refresh(failed_log)
-
-            # Failed AI generation ka audit log.
-            AuditLogService.create_log(
-                db=db,
-                audit_data=AuditLogCreate(
-                    user_id=current_user.id,
-                    organization_id=organization_id,
-                    action="ai_generation_failed",
-                    entity_type="ai_generation",
-                    entity_id=failed_log.id,
-                    ip_address=(
-                        request.client.host
-                        if request.client
-                        else None
-                    ),
-                    user_agent=request.headers.get("user-agent"),
-                    details={
-                        "task_type": data.task_type,
-                        "platform": data.platform,
-                        "language": data.language,
-                        "keyword": data.keyword,
-                        "status": "failed",
-                        "error_message": str(e),
-                    },
-                ),
-            )
-
-        except Exception:
-            db.rollback()
-
+        db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Gemini generation failed: {str(e)}",

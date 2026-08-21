@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.models.models import Post, SocialAccount, Organization
+from app.models import Post, SocialAccount, Organization
 from app.providers.social.instagram_provider import InstagramProvider
 # Agar Facebook / LinkedIn providers bhi hain to import karein:
 # from app.providers.social.facebook_provider import FacebookProvider

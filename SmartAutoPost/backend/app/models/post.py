@@ -87,6 +87,7 @@ class Post(Base):
         nullable=True,
     )
     platform_post_id = Column(String(255), nullable=True)
+    media_url = Column(String, nullable=True) # ya Column(Text, nullable=True)
 
     # Post kab create hua.
     created_at = Column(

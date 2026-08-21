@@ -1,16 +1,10 @@
-import base64
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from app.database.session import get_db
-from app.dependencies.auth import get_current_user
-from app.models.user import User
-from app.models.ai_generation import AIGeneration
-from app.schemas.gemini import GeminiRequest, GeminiResponse
-from app.schemas.audit_log import AuditLogCreate
+from app.schemas.gemini import GeminiRequest
 from app.services.gemini_service import GeminiService
-from app.services.audit_log_service import AuditLogService
 
 router = APIRouter(
     prefix="/ai",
@@ -19,48 +13,47 @@ router = APIRouter(
 
 service = GeminiService()
 
+
 @router.post("/caption")
 async def generate_caption_endpoint(
     request: Request,
     prompt: Optional[str] = Form(None),
-    platform: Optional[str] = Form("instagram"),
-    generation_type: Optional[str] = Form("Caption"),
+    platform: Optional[str] = Form("Instagram"),
+    generation_type: Optional[str] = Form("caption"),
     image: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
-    Image + Prompt dono analyze karke Smart Caption & Hashtags generate karta hai.
+    Image & Context Prompt dono analyze karke Caption & Hashtags generate karta hai.
     """
     try:
-        user_prompt = prompt or "Generate an engaging post caption with relevant trending hashtags."
-        
-        # Format instructions for AI
-        full_instruction = (
-            f"Platform: {platform}. User context/prompt: {user_prompt}. "
-            f"Analyze the image (if provided) and user context. "
-            f"Generate a catchy, viral caption with emoji formatting, followed by 10-15 relevant and high-reach hashtags."
-        )
+        user_prompt = prompt or "Create an engaging post caption with relevant hashtags."
 
         gemini_req = GeminiRequest(
-            task_type="caption",
-            platform=platform or "instagram",
+            task_type=generation_type or "caption",
+            platform=platform or "Instagram",
             language="en",
-            keyword=full_instruction
+            keyword=user_prompt,
         )
 
-        result = service.generate(gemini_req)
+        image_bytes = None
+        mime_type = "image/jpeg"
+        if image:
+            image_bytes = await image.read()
+            mime_type = image.content_type or "image/jpeg"
+
+        result = service.generate(gemini_req, image_bytes=image_bytes, mime_type=mime_type)
         caption_text = getattr(result, "result", str(result))
 
         return {
             "status": "success",
             "caption": caption_text,
             "content": caption_text,
-            "result": caption_text
+            "result": caption_text,
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Content generation failed: {str(e)}"
+            detail=f"Caption generation failed: {str(e)}"
         )

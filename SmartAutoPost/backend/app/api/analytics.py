@@ -1,11 +1,11 @@
 import json
 from datetime import datetime
-from typing import List, Optional
 import requests
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.database.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.analytics import AnalyticsRecord
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
 # =====================================================
-# GET POST ANALYTICS (Table & History)
+# GET POST ANALYTICS
 # =====================================================
 @router.get("/post/{post_id}")
 def get_post_analytics(
@@ -52,35 +52,31 @@ def sync_post_live_metrics(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    # 1. Social Account dhundein
-    social_account = None
-    if post.social_account_id:
-        social_account = db.query(SocialAccount).filter(SocialAccount.id == post.social_account_id).first()
-
-    if not social_account:
-        social_account = (
-            db.query(SocialAccount)
-            .filter(
+    # 1. Access Token: Pehle .env se lo (jo publishing me successfully chal raha hai)
+    token = getattr(settings, "INSTAGRAM_ACCESS_TOKEN", None) or getattr(settings, "META_ACCESS_TOKEN", None) or getattr(settings, "FACEBOOK_ACCESS_TOKEN", None)
+    
+    # Fallback: Agar .env me na mile tab database se lo
+    if not token:
+        social_account = None
+        if post.social_account_id:
+            social_account = db.query(SocialAccount).filter(SocialAccount.id == post.social_account_id).first()
+        if not social_account:
+            social_account = db.query(SocialAccount).filter(
                 SocialAccount.organization_id == post.organization_id,
-                SocialAccount.is_active == True,
-            )
-            .first()
-        )
+                SocialAccount.is_active == True
+            ).first()
+        if social_account and social_account.access_token:
+            token = social_account.access_token
 
-    if not social_account or not social_account.access_token:
-        raise HTTPException(status_code=400, detail="Connected social account or access token missing")
+    if not token:
+        raise HTTPException(status_code=400, detail="Valid access token not found in ENV or database")
 
-    # 2. Token clean karein (newlines, quotes, whitespaces strip)
-    token = str(social_account.access_token).strip().strip("'\"")
+    token = str(token).strip().strip("'\"")
 
-    # 3. Meta Platform ID check karein
-    platform_post_id = (
-        getattr(post, "platform_post_id", None)
-        or getattr(post, "ig_media_id", None)
-        or getattr(post, "external_id", None)
-    )
+    # 2. Meta Media ID find karein
+    platform_post_id = getattr(post, "platform_post_id", None) or getattr(post, "ig_media_id", None) or getattr(post, "external_id", None)
 
-    # Fallback: Agar column me na mile toh publish_logs table check karein
+    # Agar column me nahi hai toh publish_logs se uthao
     if not platform_post_id:
         try:
             from sqlalchemy import text
@@ -92,23 +88,15 @@ def sync_post_live_metrics(
                 platform_post_id = log_row[0]
                 if not platform_post_id and log_row[1]:
                     res_json = json.loads(log_row[1]) if isinstance(log_row[1], str) else log_row[1]
-                    platform_post_id = (
-                        res_json.get("id") 
-                        or res_json.get("platform_post_id") 
-                        or res_json.get("instagram_post_id") 
-                        or res_json.get("media_id")
-                    )
+                    platform_post_id = res_json.get("id") or res_json.get("platform_post_id") or res_json.get("instagram_post_id")
         except Exception:
             pass
 
     if not platform_post_id:
-        raise HTTPException(
-            status_code=400, 
-            detail="Post has no Meta Media ID in database. Please ensure it is published to Instagram."
-        )
+        raise HTTPException(status_code=400, detail="Post has no Meta Media ID in database.")
 
     try:
-        # 4. Likes aur Comments fetch karein Meta Graph API se
+        # 3. Fetch Likes & Comments via Meta Graph API
         url = f"https://graph.facebook.com/v20.0/{platform_post_id}"
         params = {
             "fields": "like_count,comments_count",
@@ -124,16 +112,12 @@ def sync_post_live_metrics(
         likes = data.get("like_count", 0)
         comments = data.get("comments_count", 0)
 
-        # 5. Reach / Impressions fetch karein
+        # 4. Fetch Insights (Impressions & Reach)
         impressions = likes
         reach = likes
         try:
             ins_url = f"https://graph.facebook.com/v20.0/{platform_post_id}/insights"
-            ins_params = {
-                "metric": "impressions,reach",
-                "access_token": token,
-            }
-            ins_res = requests.get(ins_url, params=ins_params, timeout=10)
+            ins_res = requests.get(ins_url, params={"metric": "impressions,reach", "access_token": token}, timeout=10)
             ins_data = ins_res.json()
             if "data" in ins_data:
                 for item in ins_data["data"]:
@@ -144,7 +128,7 @@ def sync_post_live_metrics(
         except Exception:
             pass
 
-        # 6. Database me Record Save karein
+        # 5. Database me Record Save karein
         record = AnalyticsRecord(
             post_id=post.id,
             likes=likes,

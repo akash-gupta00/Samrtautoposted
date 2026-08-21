@@ -1,112 +1,99 @@
-from app.core.config import settings
-from app.models.post import Post
-from app.models.social_account import SocialAccount
+import logging
+from datetime import datetime
+from sqlalchemy.orm import Session
 
-from app.providers.social.facebook_provider import FacebookProvider
+from app.models.models import Post, SocialAccount, Organization
 from app.providers.social.instagram_provider import InstagramProvider
-from app.providers.social.linkedin_provider import LinkedInProvider
+# Agar Facebook / LinkedIn providers bhi hain to import karein:
+# from app.providers.social.facebook_provider import FacebookProvider
+
+logger = logging.getLogger(__name__)
 
 
-def resolve_media_url(post: Post, custom_base: str = None):
-    if not post.media:
-        return None
+class SocialPublishService:
+    def __init__(self, db: Session):
+        self.db = db
 
-    first_media = post.media[0]
-    file_url = (
-        getattr(first_media, "file_url", None)
-        or getattr(first_media, "url", None)
-        or getattr(first_media, "file_path", None)
-    )
+    def publish_post(self, post_id: int) -> dict:
+        """
+        Database se post aur associated social account ko load karke
+        relevant platform par publish karta hai.
+        """
+        post = self.db.query(Post).filter(Post.id == post_id).first()
+        if not post:
+            return {"success": False, "error": f"Post with id {post_id} not found."}
 
-    if not file_url:
-        return None
+        # 1. Social Account Fetching Logic
+        social_account = None
+        if hasattr(post, "social_account_id") and post.social_account_id:
+            social_account = self.db.query(SocialAccount).filter(SocialAccount.id == post.social_account_id).first()
 
-    live_host = (
-        custom_base
-        or getattr(settings, "PUBLIC_BASE_URL", "https://samrtautoposted.onrender.com")
-        or "https://samrtautoposted.onrender.com"
-    )
-    live_host = live_host.rstrip("/")
-
-    if not (file_url.startswith("http://") or file_url.startswith("https://")):
-        path = file_url if file_url.startswith("/") else f"/{file_url}"
-        file_url = f"{live_host}{path}"
-
-    file_url = file_url.replace("smartautopost.onrender.com", "samrtautoposted.onrender.com")
-
-    if file_url.startswith("http://"):
-        file_url = file_url.replace("http://", "https://")
-
-    return file_url
-
-
-class PublishService:
-
-    def publish_to_platform(
-        self,
-        post: Post,
-        social_account: SocialAccount,
-        base_url: str = None,
-        **kwargs
-    ):
-        try:
-            platform = str(getattr(social_account, "platform", None) or getattr(social_account, "provider", "instagram")).lower().strip()
-            caption = post.caption or post.title or ""
-            media_url = resolve_media_url(post, custom_base=base_url)
-
-            if platform == "facebook":
-                provider = FacebookProvider(
-                    access_token=social_account.access_token,
-                    page_id=social_account.page_id or getattr(social_account, "account_id", None),
-                )
-                result = provider.publish_post(caption, media_url)
-
-            elif platform in ["instagram", "ig"]:
-                ig_id = (
-                    getattr(social_account, "account_id", None)
-                    or getattr(social_account, "page_id", None)
-                    or getattr(social_account, "platform_account_id", None)
-                )
-                provider = InstagramProvider(
-                    access_token=social_account.access_token,
-                    ig_user_id=ig_id,
-                )
-                result = provider.publish_post(caption, media_url)
-
-            elif platform == "linkedin":
-                provider = LinkedInProvider(
-                    access_token=social_account.access_token,
-                    author_urn=getattr(social_account, "page_id", None) or getattr(social_account, "account_id", None),
-                )
-                result = provider.publish_post(caption, media_url)
-
-            else:
-                result = {
-                    "success": False,
-                    "error": f"'{platform}' abhi publish ke liye supported nahi hai.",
-                }
-
-            if not isinstance(result, dict):
-                result = {"success": True, "id": str(result)}
-
-            # Standardize Post ID Extraction across any response format
-            platform_id = (
-                result.get("id")
-                or result.get("platform_post_id")
-                or result.get("instagram_post_id")
-                or result.get("media_id")
-                or result.get("post_id")
+        # Fallback: Agar direct link na ho to Organization ke primary account se fetch karein
+        if not social_account and hasattr(post, "organization_id") and post.organization_id:
+            social_account = (
+                self.db.query(SocialAccount)
+                .filter(SocialAccount.organization_id == post.organization_id)
+                .first()
             )
 
-            if platform_id:
-                result["platform_post_id"] = str(platform_id)
-                result["instagram_post_id"] = str(platform_id)
-                result["success"] = True
-
-            return result
-
-        except Exception as e:
+        if not social_account:
             return {
                 "success": False,
-                "error": str(e),
+                "error": "No connected social account found for this post/workspace."
             }
+
+        provider_name = str(social_account.provider).lower()
+        access_token = str(social_account.access_token).strip()
+
+        # 2. Instagram Publishing Flow
+        if provider_name == "instagram":
+            # Target ID Selection: Priority dijiye instagram_id -> page_id -> id
+            target_ig_id = (
+                getattr(social_account, "instagram_id", None)
+                or getattr(social_account, "page_id", None)
+                or getattr(social_account, "account_id", None)
+                or getattr(social_account, "provider_user_id", None)
+            )
+
+            if not target_ig_id:
+                return {
+                    "success": False,
+                    "error": "Instagram Business Account ID missing in database record."
+                }
+
+            logger.info(f"Publishing post {post.id} to Instagram ID: {target_ig_id}")
+
+            provider = InstagramProvider(
+                access_token=access_token,
+                ig_user_id=str(target_ig_id)
+            )
+
+            # Publish trigger
+            result = provider.publish_post(
+                caption=post.caption or post.content or "",
+                media_url=post.media_url
+            )
+
+            # 3. Post Status Update
+            if result.get("success"):
+                post.status = "PUBLISHED"
+                if hasattr(post, "published_at"):
+                    post.published_at = datetime.utcnow()
+                if hasattr(post, "platform_post_id"):
+                    post.platform_post_id = str(result.get("platform_post_id") or result.get("id"))
+                self.db.commit()
+                return {"success": True, "post_id": post.id, "platform_post_id": post.platform_post_id}
+            else:
+                post.status = "FAILED"
+                if hasattr(post, "error_message"):
+                    post.error_message = result.get("error")
+                self.db.commit()
+                return {"success": False, "error": result.get("error")}
+
+        # 4. Other Providers (Facebook Page fallback)
+        elif provider_name in ["facebook", "fb"]:
+            # Facebook Page posting logic yahan daal sakte hain
+            return {"success": False, "error": "Facebook publishing handler is not configured yet."}
+
+        else:
+            return {"success": False, "error": f"Unsupported social provider: {provider_name}"}

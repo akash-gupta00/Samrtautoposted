@@ -31,15 +31,23 @@
             <input id="postTitle" placeholder="e.g. New Product Launch, Coding Tips">
         </label>
 
-        <!-- Caption Area with AI Magic Button -->
-        <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <label style="margin: 0; font-weight: 600;">Caption & Hashtags</label>
-                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+        <!-- AI Custom Instruction Prompt Box -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #4338ca;">
+                🤖 AI Instruction / Custom Prompt (Optional)
+            </label>
+            <div style="display: flex; gap: 8px;">
+                <input id="aiCustomPrompt" type="text" placeholder="e.g. Is photo ke liye short & aesthetic caption do ya funny tone me..." style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
                     ✨ Generate with AI
                 </button>
             </div>
-            <textarea id="postCaption" rows="5" required placeholder="Upload image or write topic, then click '✨ Generate with AI'..."></textarea>
+        </div>
+
+        <!-- Caption Area -->
+        <div>
+            <label style="margin-bottom: 6px; font-weight: 600; display: block;">Caption & Hashtags</label>
+            <textarea id="postCaption" rows="5" required placeholder="Upload image, write custom prompt above, then click '✨ Generate with AI'..."></textarea>
         </div>
 
         <div style="margin-top: 15px;">
@@ -102,6 +110,29 @@
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const selectEl = document.getElementById('socialAccount');
+        if (!selectEl) return;
+        const currentOrgId = typeof orgId === 'function' ? orgId() : null;
+        if (!currentOrgId) return;
+
+        const accounts = await api(`/social-accounts/?organization_id=${currentOrgId}`);
+        const list = Array.isArray(accounts) ? accounts : (accounts.items || []);
+
+        if (list.length === 0) {
+            selectEl.innerHTML = '<option value="">No accounts connected</option>';
+            return;
+        }
+
+        selectEl.innerHTML = list.map(acc => `
+            <option value="${acc.id}">${acc.platform} - ${acc.account_name || acc.username || 'Account'}</option>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load social accounts:', err);
+    }
+});
+
 function handleDirectUpload(event) {
     const file = event.target.files[0];
     const imgEl = document.getElementById('livePreviewImg');
@@ -173,11 +204,12 @@ document.getElementById('postCaption')?.addEventListener('input', (e) => {
     if (el) el.innerText = e.target.value || 'Your caption will appear here.';
 });
 
-// AI Caption
+// AI Caption Generation with Custom Instruction Prompt
 async function generateMagicCaption() {
     const btn = document.getElementById('aiMagicBtn');
     const captionBox = document.getElementById('postCaption');
     const titleInput = document.getElementById('postTitle');
+    const customPromptInput = document.getElementById('aiCustomPrompt');
     const fileInput = document.getElementById('postImageFile');
     const previewCaption = document.getElementById('previewCaption');
 
@@ -187,9 +219,21 @@ async function generateMagicCaption() {
 
     try {
         const formData = new FormData();
-        const userPrompt = titleInput.value.trim() || captionBox.value.trim() || "Write an engaging social media caption with trending hashtags.";
+        const customInstruction = customPromptInput.value.trim();
+        const titleText = titleInput.value.trim();
+        const currentCaption = captionBox.value.trim();
+
+        let finalPrompt = '';
+        if (customInstruction) {
+            finalPrompt = customInstruction;
+            if (currentCaption) finalPrompt += ` (Previous draft: "${currentCaption}")`;
+        } else if (titleText) {
+            finalPrompt = `Write an engaging caption for: ${titleText}`;
+        } else {
+            finalPrompt = "Write an engaging social media caption with trending hashtags for this image.";
+        }
         
-        formData.append('prompt', userPrompt);
+        formData.append('prompt', finalPrompt);
         formData.append('platform', 'Instagram');
         formData.append('generation_type', 'caption');
 
@@ -219,36 +263,84 @@ async function generateMagicCaption() {
     }
 }
 
-// Publish Directly
+// Resolve & Upload Media IDs (Fixes "mediaIds is not defined")
+async function resolveMediaIds() {
+    const fileInput = document.getElementById('postImageFile');
+    const selectedId = document.getElementById('selectedMediaId').value;
+    let mediaIdsList = [];
+
+    if (selectedId) {
+        mediaIdsList.push(Number(selectedId));
+    } else if (fileInput.files && fileInput.files[0]) {
+        if (typeof showToast === 'function') showToast('Uploading media...');
+        const mediaForm = new FormData();
+        mediaForm.append('file', fileInput.files[0]);
+
+        const uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgId()}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` },
+            body: mediaForm
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData && uploadData.id) {
+            mediaIdsList.push(uploadData.id);
+        }
+    }
+    return mediaIdsList;
+}
+
+// Schedule & Create Post (Form Submit)
+document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!orgId()) return showToast('Select organization first', true);
+    const socialAcc = document.getElementById('socialAccount');
+    if (!socialAcc || !Number(socialAcc.value)) return showToast('Select a social account', true);
+
+    try {
+        const mediaIdsList = await resolveMediaIds();
+        if (mediaIdsList.length === 0) {
+            return showToast('Please select or upload an image first', true);
+        }
+
+        const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
+        const captionVal = document.getElementById('postCaption')?.value.trim() || '';
+        const scheduledAtVal = document.getElementById('scheduledAt')?.value || null;
+
+        if (typeof showToast === 'function') showToast('Saving post...');
+
+        await api('/posts/', {
+            method: 'POST',
+            body: JSON.stringify({
+                organization_id: orgId(),
+                social_account_id: Number(socialAcc.value),
+                title: titleVal,
+                caption: captionVal,
+                scheduled_at: scheduledAtVal ? new Date(scheduledAtVal).toISOString() : null,
+                media_ids: mediaIdsList
+            })
+        });
+
+        if (typeof showToast === 'function') showToast('Post created/scheduled successfully! 📅');
+        setTimeout(() => location.href = '/posts', 1000);
+    } catch (err) {
+        if (typeof showToast === 'function') showToast(err.message || 'Failed to create post', true);
+    }
+});
+
+// Direct Publish Button
 async function publishDirectly() {
     if (!orgId()) return showToast('Select organization first', true);
     const socialAcc = document.getElementById('socialAccount');
     if (!socialAcc || !Number(socialAcc.value)) return showToast('Select a social account', true);
 
-    const fileInput = document.getElementById('postImageFile');
-    const selectedId = document.getElementById('selectedMediaId').value;
-    let mediaIdsList = [];
-
-    if (selectedId) mediaIdsList.push(Number(selectedId));
-
     try {
-        if (fileInput.files && fileInput.files[0] && mediaIdsList.length === 0) {
-            showToast('Uploading media...');
-            const mediaForm = new FormData();
-            mediaForm.append('file', fileInput.files[0]);
-
-            const uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgId()}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` },
-                body: mediaForm
-            });
-            const uploadData = await uploadRes.json();
-            if (uploadData && uploadData.id) mediaIdsList.push(uploadData.id);
+        const mediaIdsList = await resolveMediaIds();
+        if (mediaIdsList.length === 0) {
+            return showToast('Please select or upload an image first', true);
         }
 
-        if (mediaIdsList.length === 0) return showToast('Please select or upload an image first', true);
-
-        showToast('Publishing post...');
+        if (typeof showToast === 'function') showToast('Publishing post...');
         const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
         const captionVal = document.getElementById('postCaption')?.value.trim() || '';
 
@@ -265,10 +357,10 @@ async function publishDirectly() {
         });
 
         await api(`/posts/${post.id}/publish`, { method: 'POST' });
-        showToast('Post published successfully! 🎉');
+        if (typeof showToast === 'function') showToast('Post published successfully! 🎉');
         setTimeout(() => location.href = '/posts', 1000);
     } catch (err) {
-        showToast(err.message || 'Publish failed', true);
+        if (typeof showToast === 'function') showToast(err.message || 'Publish failed', true);
     }
 }
 </script>

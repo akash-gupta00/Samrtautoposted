@@ -1,81 +1,25 @@
 import logging
-from datetime import datetime
-from sqlalchemy.orm import Session
-
-# Dynamic Models Import
-try:
-    from app.models.post import Post
-    from app.models.social_account import SocialAccount
-    from app.models.organization import Organization
-except ImportError:
-    try:
-        from app.models import Post, SocialAccount, Organization
-    except ImportError:
-        from app.models.models import Post, SocialAccount, Organization
-
-# Dynamic Database Session Import (Agar db direct na pass ho)
-try:
-    from app.core.database import SessionLocal
-except ImportError:
-    try:
-        from app.db.session import SessionLocal
-    except ImportError:
-        try:
-            from app.database import SessionLocal
-        except ImportError:
-            SessionLocal = None
-
 from app.providers.social.instagram_provider import InstagramProvider
 
 logger = logging.getLogger(__name__)
 
 
 class PublishService:
-    def __init__(self, db: Session = None):
-        self.db = db
+    def __init__(self):
+        pass
 
-    def _get_db(self):
-        if self.db is not None:
-            return self.db, False
-        if SessionLocal is not None:
-            return SessionLocal(), True
-        raise ValueError("Database session could not be initialized.")
-
-    def publish_post(self, post_id: int) -> dict:
+    def publish_to_platform(self, post, social_account) -> dict:
         """
-        Database se post aur linked Instagram account ko nikal kar
-        direct Instagram Reel / Post publish karta hai.
+        API Router ke hisaab se post aur social_account object le kar
+        Instagram / social platform par live content publish karta hai.
         """
-        db, should_close = self._get_db()
         try:
-            post = db.query(Post).filter(Post.id == post_id).first()
-            if not post:
-                return {"success": False, "error": f"Post with id {post_id} not found."}
-
-            # 1. Social Account Link Resolve Karein
-            social_account = None
-            if hasattr(post, "social_account_id") and post.social_account_id:
-                social_account = db.query(SocialAccount).filter(SocialAccount.id == post.social_account_id).first()
-
-            if not social_account and hasattr(post, "organization_id") and post.organization_id:
-                social_account = (
-                    db.query(SocialAccount)
-                    .filter(SocialAccount.organization_id == post.organization_id)
-                    .first()
-                )
-
-            if not social_account:
-                return {
-                    "success": False,
-                    "error": "No connected social account found for this post."
-                }
-
             provider_name = str(social_account.provider).lower()
             access_token = str(social_account.access_token).strip()
 
-            # 2. Instagram Publishing Logic
+            # 1. Instagram Publishing
             if provider_name == "instagram":
-                # Priority ID Resolution: instagram_id -> page_id -> account_id
+                # Instagram ID Priority Selection
                 target_ig_id = (
                     getattr(social_account, "instagram_id", None)
                     or getattr(social_account, "page_id", None)
@@ -86,7 +30,7 @@ class PublishService:
                 if not target_ig_id:
                     return {
                         "success": False,
-                        "error": "Instagram Business Account ID missing in database record."
+                        "error": "Instagram Business Account ID not found for this account."
                     }
 
                 logger.info(f"Publishing post {post.id} to Instagram Target ID: {target_ig_id}")
@@ -96,33 +40,44 @@ class PublishService:
                     ig_user_id=str(target_ig_id)
                 )
 
+                # Caption aur Media URL resolve karein
                 caption_text = getattr(post, "caption", None) or getattr(post, "content", "") or ""
-                media_url = getattr(post, "media_url", None) or getattr(post, "video_url", None) or getattr(post, "image_url", None)
+                media_url = (
+                    getattr(post, "media_url", None)
+                    or getattr(post, "video_url", None)
+                    or getattr(post, "image_url", None)
+                )
 
+                if not media_url:
+                    return {
+                        "success": False,
+                        "error": "Media URL (video/image) is required to publish to Instagram."
+                    }
+
+                # Trigger publish
                 result = provider.publish_post(
                     caption=caption_text,
                     media_url=media_url
                 )
 
-                # 3. Status Update in Database
-                if result.get("success"):
-                    post.status = "PUBLISHED"
-                    if hasattr(post, "published_at"):
-                        post.published_at = datetime.utcnow()
-                    if hasattr(post, "platform_post_id"):
-                        post.platform_post_id = str(result.get("platform_post_id") or result.get("id"))
-                    db.commit()
-                    return {"success": True, "post_id": post.id, "platform_post_id": getattr(post, "platform_post_id", None)}
-                else:
-                    post.status = "FAILED"
-                    if hasattr(post, "error_message"):
-                        post.error_message = result.get("error")
-                    db.commit()
-                    return {"success": False, "error": result.get("error")}
+                return result
+
+            # 2. Other Providers (Facebook / LinkedIn)
+            elif provider_name in ["facebook", "fb"]:
+                return {
+                    "success": False,
+                    "error": "Facebook publishing is not configured yet."
+                }
 
             else:
-                return {"success": False, "error": f"Provider '{provider_name}' is not configured yet."}
+                return {
+                    "success": False,
+                    "error": f"Unsupported platform: {provider_name}"
+                }
 
-        finally:
-            if should_close:
-                db.close()
+        except Exception as e:
+            logger.exception("Error during publish_to_platform")
+            return {
+                "success": False,
+                "error": str(e)
+            }

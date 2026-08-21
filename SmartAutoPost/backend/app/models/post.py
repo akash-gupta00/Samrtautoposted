@@ -86,6 +86,7 @@ class Post(Base):
         DateTime,
         nullable=True,
     )
+    platform_post_id = Column(String(255), nullable=True)
 
     # Post kab create hua.
     created_at = Column(

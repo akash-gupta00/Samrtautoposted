@@ -39,38 +39,41 @@ async def upload_media(
             detail=f"Unsupported format .{ext}. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
         )
 
-    # Unique file name generate karein
+    # 1. Generate unique file name and save
     unique_filename = f"{uuid.uuid4().hex}.{ext}"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Public Accessible Base URL
+    # 2. Public Accessible URL
     base_url = str(request.base_url).rstrip("/")
     if "onrender.com" in base_url and base_url.startswith("http://"):
         base_url = base_url.replace("http://", "https://")
 
     public_url = f"{base_url}/uploads/media/{unique_filename}"
-    media_type = "video" if ext in ["mp4", "mov", "avi", "m4v", "webm"] else "image"
-    org_id = organization_id or getattr(current_user, "organization_id", 1) or 1
+    media_kind = "video" if ext in ["mp4", "mov", "avi", "m4v", "webm"] else "image"
+    org_id = organization_id or getattr(current_user, "organization_id", 10) or 10
 
-    # Safe model instantiation (Dynamic column check to prevent TypeError)
+    # 3. Match exact columns from Media model & DB table
     media_kwargs = {}
+    
     if hasattr(Media, "organization_id"):
         media_kwargs["organization_id"] = org_id
-    if hasattr(Media, "url"):
-        media_kwargs["url"] = public_url
     if hasattr(Media, "file_url"):
         media_kwargs["file_url"] = public_url
-    if hasattr(Media, "file_path"):
-        media_kwargs["file_path"] = file_path
+    if hasattr(Media, "url"):
+        media_kwargs["url"] = public_url
     if hasattr(Media, "filename"):
         media_kwargs["filename"] = file.filename
     elif hasattr(Media, "file_name"):
         media_kwargs["file_name"] = file.filename
+        
+    # Set both file_type and media_type so NOT NULL constraint is satisfied
+    if hasattr(Media, "file_type"):
+        media_kwargs["file_type"] = media_kind
     if hasattr(Media, "media_type"):
-        media_kwargs["media_type"] = media_type
+        media_kwargs["media_type"] = media_kind
 
     media_obj = Media(**media_kwargs)
     db.add(media_obj)
@@ -81,7 +84,8 @@ async def upload_media(
         "id": media_obj.id,
         "url": public_url,
         "file_url": public_url,
-        "media_type": media_type,
+        "media_type": media_kind,
+        "file_type": media_kind,
         "filename": unique_filename,
     }
 

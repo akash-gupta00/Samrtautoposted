@@ -6,14 +6,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 class InstagramProvider:
-    LIVE_ACCESS_TOKEN = "EAAj5dRyrYycBSQULb1r2LFQSNbALNmyvpZC3F6fGUzCeEtjANy0LBxAjOpkp4AiWpq1pPW3DpMuZBP2RkAIcPLZBh4rh0NlOAcWX3sMpuZAATk66jMsRJbl5R0d971huT35xnaNifituxwz2c9ZCPP7wkjKy6R7useW5PE2DcAE8VClZCsFUZAPmu6yzZBImtWD3rMLeB7eKLkItZANQLuxXBAZBXYRCKl7BS1Rnu0AjEOyRgZD"
-    LIVE_IG_USER_ID = "17841479000604439"
+    # SECURITY: token must never be hardcoded in source. Load from environment.
+    # Set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_IG_USER_ID in Render's
+    # "Environment" tab (or your local .env file), not in code.
     DEFAULT_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1080&auto=format&fit=crop&q=80"
 
     def __init__(self, *args, **kwargs):
-        self.access_token = self.LIVE_ACCESS_TOKEN
-        self.ig_user_id = self.LIVE_IG_USER_ID
-        self.base_url = "https://graph.facebook.com/v26.0"
+        self.access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+        self.ig_user_id = os.environ.get("INSTAGRAM_IG_USER_ID")
+
+        if not self.access_token or not self.ig_user_id:
+            raise ValueError(
+                "INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_IG_USER_ID must be set "
+                "as environment variables. They must not be hardcoded in code."
+            )
+
+        # NOTE: was "v26.0", which does not exist yet and causes every
+        # request to fail. Corrected to the current valid Graph API version.
+        # Check https://developers.facebook.com/docs/graph-api/changelog/versions/
+        # periodically, since Meta retires old versions roughly every 2 years.
+        self.base_url = "https://graph.facebook.com/v25.0"
 
     def _extract_url_and_caption(self, *args, **kwargs):
         target_image_url = None
@@ -75,10 +87,10 @@ class InstagramProvider:
             "caption": target_caption,
             "access_token": self.access_token
         }
-        
+
         container_res = requests.post(container_url, data=container_payload)
         container_data = container_res.json()
-        
+
         if "id" not in container_data:
             raise Exception(f"Failed to create media container: {container_data}")
 
@@ -91,7 +103,7 @@ class InstagramProvider:
             "creation_id": creation_id,
             "access_token": self.access_token
         }
-        
+
         publish_res = requests.post(publish_url, data=publish_payload)
         publish_data = publish_res.json()
 

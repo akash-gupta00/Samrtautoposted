@@ -1,18 +1,17 @@
-(function(){
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromFacebook = params.get("token");
-    const refreshFromFacebook = params.get("refresh");
+// Check and capture query params immediately before anything runs (Facebook & Instagram safe)
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get("token");
+const refreshFromUrl = urlParams.get("refresh");
 
-    if(tokenFromFacebook){
-        localStorage.setItem("access_token", tokenFromFacebook);
-        localStorage.setItem("refresh_token", refreshFromFacebook || "");
-        localStorage.setItem("login_provider", params.get("provider") || "social");
-        console.log("Social login token saved");
-        setTimeout(()=>{
-            window.location.href="/dashboard";
-        }, 100);
+if (tokenFromUrl) {
+    localStorage.setItem("access_token", tokenFromUrl);
+    if (refreshFromUrl) {
+        localStorage.setItem("refresh_token", refreshFromUrl);
     }
-})();
+    localStorage.setItem("login_provider", urlParams.get("provider") || "social");
+    // Clean URL query params without triggering page reload/flicker
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
 
 let organizations = [], currentOrg = null, postsCache = [];
 
@@ -45,7 +44,6 @@ function fmtDate(d){
 // the input as IST (+05:30) and converts to UTC explicitly.
 function istInputToUTCISOString(localValue){
     if(!localValue) return null;
-    // localValue looks like "2026-08-20T16:32" (no seconds, no offset)
     let value = localValue.length === 16 ? localValue + ':00' : localValue;
     const withOffset = `${value}+05:30`;
     const d = new Date(withOffset);
@@ -62,8 +60,6 @@ function toLocalInputString(dateStr){
     const d = new Date(iso);
     if(isNaN(d.getTime())) return '';
 
-    // Format the UTC instant into IST wall-clock parts using Intl, then
-    // assemble the datetime-local string manually.
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric',
@@ -81,7 +77,11 @@ function toLocalInputString(dateStr){
 }
 
 async function bootstrap(){
-    if(!token()){location.href='/login';return}
+    const currentToken = typeof token === 'function' ? token() : localStorage.getItem('access_token');
+    if(!currentToken){
+        location.href = '/login';
+        return;
+    }
     try{
         const me = await api('/auth/me');
         localStorage.setItem('user', JSON.stringify(me));

@@ -275,7 +275,9 @@ def facebook_login():
 # ============================================================
 # FACEBOOK CALLBACK
 # ============================================================
-
+# ============================================================
+# FACEBOOK CALLBACK
+# ============================================================
 @router.get("/facebook/callback")
 def facebook_callback(
     request: Request,
@@ -333,23 +335,19 @@ def facebook_callback(
     if facebook_user.get("picture"):
         picture = facebook_user.get("picture", {}).get("data", {}).get("url")
 
-    # 4. Get Facebook Pages (For posting permissions)
+    # 4. Get Facebook Pages & Permanent Page Access Tokens
     pages_response = requests.get(
         "https://graph.facebook.com/v20.0/me/accounts",
         params={"access_token": user_access_token},
         timeout=15
     )
     pages_data = pages_response.json()
+    page_list = pages_data.get("data", [])
 
-    page_id = None
-    page_access_token = None
-    page_name = name
-
-    if pages_data.get("data") and len(pages_data["data"]) > 0:
-        page = pages_data["data"][0]
-        page_id = page.get("id")
-        page_access_token = page.get("access_token")
-        page_name = page.get("name")
+    print("==============================")
+    print("FETCHED FACEBOOK PAGES:")
+    print(page_list)
+    print("==============================")
 
     # 5. Find or Create User in Database
     user = db.query(User).filter(User.facebook_id == facebook_id).first()
@@ -381,35 +379,57 @@ def facebook_callback(
 
     user_organization = get_or_create_personal_organization(db=db, user=user)
 
-    # 6. Ensure Social Account is ALWAYS Saved in Database
-    target_page_id = page_id if page_id else str(facebook_id)
-    target_token = page_access_token if page_access_token else user_access_token
-    target_name = page_name if page_id else name
+    # 6. Save Connected Facebook Pages with PAGE Access Tokens
+    if page_list:
+        for p in page_list:
+            p_id = str(p.get("id"))
+            p_token = p.get("access_token")
+            p_name = p.get("name", "Facebook Page")
 
-    old_account = db.query(SocialAccount).filter(
-        SocialAccount.organization_id == user_organization.id,
-        SocialAccount.provider == "facebook"
-    ).first()
+            existing_acc = db.query(SocialAccount).filter(
+                SocialAccount.organization_id == user_organization.id,
+                SocialAccount.provider == "facebook",
+                SocialAccount.page_id == p_id
+            ).first()
 
-    if not old_account:
-        social_account = SocialAccount(
-            organization_id=user_organization.id,
-            provider="facebook",
-            account_name=target_name,
-            page_id=target_page_id,
-            access_token=target_token,
-            refresh_token=None,
-            expires_at=None,
-            is_active=True
-        )
-        db.add(social_account)
+            if not existing_acc:
+                new_acc = SocialAccount(
+                    organization_id=user_organization.id,
+                    provider="facebook",
+                    account_name=p_name,
+                    page_id=p_id,
+                    access_token=p_token,
+                    refresh_token=None,
+                    expires_at=None,
+                    is_active=True
+                )
+                db.add(new_acc)
+            else:
+                existing_acc.access_token = p_token
+                existing_acc.account_name = p_name
+                existing_acc.is_active = True
+
+        db.commit()
     else:
-        old_account.access_token = target_token
-        old_account.account_name = target_name
-        old_account.page_id = target_page_id
-        old_account.is_active = True
+        # Fallback agar Page list empty aayi
+        existing_acc = db.query(SocialAccount).filter(
+            SocialAccount.organization_id == user_organization.id,
+            SocialAccount.provider == "facebook"
+        ).first()
 
-    db.commit()
+        if not existing_acc:
+            social_account = SocialAccount(
+                organization_id=user_organization.id,
+                provider="facebook",
+                account_name=name,
+                page_id=str(facebook_id),
+                access_token=user_access_token,
+                refresh_token=None,
+                expires_at=None,
+                is_active=True
+            )
+            db.add(social_account)
+            db.commit()
 
     # 7. Generate JWT & Redirect directly to Dashboard
     access_token = create_access_token(data={"sub": user.email})
@@ -425,10 +445,9 @@ def facebook_callback(
     db.commit()
 
     return RedirectResponse(
-        url=f"{frontend_url}/dashboard?token={access_token}&refresh={refresh_token_value}",
+        url=f"{frontend_url}/dashboard?token={access_token}&refresh={refresh_token_value}&provider=facebook",
         status_code=302
     )
-
 
 # ============================================================
 # INSTAGRAM LOGIN START

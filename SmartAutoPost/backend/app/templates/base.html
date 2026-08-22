@@ -10,8 +10,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css?v=9999">
+    <link rel="stylesheet" href="/static/css/app.css?v=102">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Immediate URL Token Capture (Runs before ANY script loads) -->
+    <script>
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const urlToken = params.get('token');
+                const urlRefresh = params.get('refresh');
+                const urlProvider = params.get('provider');
+
+                if (urlToken) {
+                    localStorage.setItem('access_token', urlToken);
+                    if (urlRefresh) localStorage.setItem('refresh_token', urlRefresh);
+                    if (urlProvider) localStorage.setItem('login_provider', urlProvider);
+                    // URL saaf kar do bina reload kiye
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch (e) {
+                console.error("Token capture error:", e);
+            }
+        })();
+    </script>
 </head>
 
 <body data-page="{{ page }}">
@@ -91,7 +113,7 @@
             </nav>
 
             <div class="sidebar-user">
-                <div class="avatar" id="sidebarAvatar">AK</div>
+                <div class="avatar" id="sidebarAvatar">SP</div>
                 <div>
                     <strong id="sidebarName">User</strong>
                     <small id="sidebarOrg">SmartAutoPost</small>
@@ -131,9 +153,9 @@
 
     <div id="toast" class="toast"></div>
 
-    <script src="/static/js/api.js?v=9999"></script>
-    <script src="/static/js/app.js?v=9999"></script>
-    <script src="/static/js/modules.js?v=9999"></script>
+    <script src="/static/js/api.js?v=102"></script>
+    <script src="/static/js/app.js?v=102"></script>
+    <script src="/static/js/modules.js?v=102"></script>
 
     {% block scripts %}
     {% endblock %}

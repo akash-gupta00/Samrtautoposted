@@ -478,7 +478,6 @@ def login_user(
 # ============================================================
 # FACEBOOK LOGIN START
 # ============================================================
-
 @router.get("/facebook/login")
 def facebook_login():
     facebook_url = (
@@ -486,8 +485,9 @@ def facebook_login():
         + urlencode({
             "client_id": settings.FACEBOOK_CLIENT_ID,
             "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
-            "scope": "email,public_profile",
+            "scope": "email,public_profile,pages_show_list,pages_read_engagement,pages_manage_posts",
             "auth_type": "rerequest",
+            "response_type": "code"
         })
     )
     return RedirectResponse(url=facebook_url)
@@ -499,298 +499,132 @@ def facebook_login():
 
 @router.get("/facebook/callback")
 def facebook_callback(
-
     request: Request,
-
     db: Session = Depends(get_db)
-
 ):
-
-    # -----------------------------------------
-    # GET CODE
-    # -----------------------------------------
-
     code = request.query_params.get("code")
 
-    # Instagram/Facebook sometimes append a "#_" fragment style
-    # value in the query string on certain redirects. Strip it
-    # defensively so the exact same code string is sent back.
     if code:
         code = code.split("#")[0].strip()
 
-
     if not code:
-
         raise HTTPException(
-
             status_code=400,
-
             detail="Facebook code missing"
-
         )
-
-
 
     # -----------------------------------------
     # GET USER ACCESS TOKEN
     # -----------------------------------------
-
     token_response = requests.get(
-
         "https://graph.facebook.com/v20.0/oauth/access_token",
-
         params={
-
-            "client_id":
-            settings.FACEBOOK_CLIENT_ID,
-
-
-            "client_secret":
-            settings.FACEBOOK_CLIENT_SECRET,
-
-
-            "redirect_uri":
-            settings.FACEBOOK_REDIRECT_URI,
-
-
-            "code":
-            code
-
+            "client_id": settings.FACEBOOK_CLIENT_ID,
+            "client_secret": settings.FACEBOOK_CLIENT_SECRET,
+            "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
+            "code": code
         }
-
     )
 
-
     token_data = token_response.json()
-
 
     print("======================")
     print("FACEBOOK USER TOKEN")
     print(token_data)
     print("======================")
 
-
-    user_access_token = token_data.get(
-        "access_token"
-    )
-
+    user_access_token = token_data.get("access_token")
 
     if not user_access_token:
-
-
         raise HTTPException(
-
             status_code=400,
-
             detail={
-                "message":
-                "Facebook token failed",
-
-                "response":
-                token_data
+                "message": "Facebook token failed",
+                "response": token_data
             }
-
         )
-
-
 
     # -----------------------------------------
     # GET FACEBOOK USER
     # -----------------------------------------
-
     user_response = requests.get(
-
         "https://graph.facebook.com/v20.0/me",
-
         params={
-
-            "fields":
-            "id,name,email,picture",
-
-
-            "access_token":
-            user_access_token
-
+            "fields": "id,name,email,picture",
+            "access_token": user_access_token
         }
-
     )
-
 
     facebook_user = user_response.json()
-
-
-    print("======================")
-    print("FACEBOOK USER")
-    print(facebook_user)
-    print("======================")
-
-
-    facebook_id = facebook_user.get(
-        "id"
-    )
-
-
-    name = facebook_user.get(
-        "name",
-        "Facebook User"
-    )
-
-
-    email = facebook_user.get(
-        "email"
-    )
-
+    facebook_id = facebook_user.get("id")
+    name = facebook_user.get("name", "Facebook User")
+    email = facebook_user.get("email")
 
     if not email:
-
-        email = (
-            f"{facebook_id}@facebook.local"
-        )
-
-
+        email = f"{facebook_id}@facebook.local"
 
     picture = None
-
-
     if facebook_user.get("picture"):
-
-        picture = (
-
-            facebook_user
-            .get("picture")
-            .get("data")
-            .get("url")
-
-        )
-
-
+        picture = facebook_user.get("picture", {}).get("data", {}).get("url")
 
     # -----------------------------------------
     # GET FACEBOOK PAGES
     # -----------------------------------------
-    # Page posting ke liye Page Token chahiye
-
     pages_response = requests.get(
-
         "https://graph.facebook.com/v20.0/me/accounts",
-
         params={
-
-            "access_token":
-            user_access_token
-
+            "access_token": user_access_token
         }
-
     )
 
-
     pages_data = pages_response.json()
-
 
     print("======================")
     print("FACEBOOK PAGES")
     print(pages_data)
     print("======================")
 
-
-
     page_id = None
-
     page_access_token = None
-
     page_name = name
 
-
-
-    if pages_data.get("data"):
-
-
+    if pages_data.get("data") and len(pages_data["data"]) > 0:
         page = pages_data["data"][0]
-
-
-        page_id = page.get(
-            "id"
-        )
-
-
-        page_access_token = page.get(
-            "access_token"
-        )
-
-
-        page_name = page.get(
-            "name"
-        )
-
-
+        page_id = page.get("id")
+        page_access_token = page.get("access_token")
+        page_name = page.get("name")
 
     # -----------------------------------------
     # CREATE / UPDATE USER
     # -----------------------------------------
-
     user = (
-
         db.query(User)
-
-        .filter(
-            User.facebook_id == facebook_id
-        )
-
+        .filter(User.facebook_id == facebook_id)
         .first()
-
     )
 
-
-
     if not user:
-
-
         user = User(
-
             name=name,
-
             email=email,
-
             password_hash=None,
-
             facebook_id=facebook_id,
-
             profile_image=picture,
-
             auth_provider="facebook",
-
             is_verified=True,
-
             status="active",
-
             is_active=True
-
         )
-
-
         db.add(user)
-
-
-
     else:
-
-
         user.name = name
-
         user.facebook_id = facebook_id
-
         user.profile_image = picture
-
         user.auth_provider = "facebook"
-
         user.is_verified = True
-
         user.status = "active"
 
-
-
     db.commit()
-
     db.refresh(user)
 
     user_organization = get_or_create_personal_organization(db=db, user=user)
@@ -798,141 +632,60 @@ def facebook_callback(
     # -----------------------------------------
     # SAVE FACEBOOK SOCIAL ACCOUNT
     # -----------------------------------------
-
     if page_id and page_access_token:
-
-
         old_account = (
-
             db.query(SocialAccount)
-
             .filter(
-
+                SocialAccount.organization_id == user_organization.id,
                 SocialAccount.provider == "facebook",
-
                 SocialAccount.page_id == page_id
-
             )
-
             .first()
-
         )
-
 
         if not old_account:
-
-
             social_account = SocialAccount(
-
                 organization_id=user_organization.id,
-
                 provider="facebook",
-
                 account_name=page_name,
-
                 page_id=page_id,
-
                 access_token=page_access_token,
-
                 refresh_token=None,
-
                 expires_at=None,
-
                 is_active=True
-
             )
-
-
             db.add(social_account)
-
-
-
         else:
-
-
             old_account.access_token = page_access_token
-
             old_account.account_name = page_name
 
-
-
         db.commit()
-
-
-
     else:
-
-
-        print(
-            "No Facebook Page found"
-        )
-
-
+        print("No Facebook Page found")
 
     # -----------------------------------------
     # CREATE JWT
     # -----------------------------------------
-
-    access_token = create_access_token(
-
-        data={
-
-            "sub":
-            user.email
-
-        }
-
-    )
-
-
-
-    refresh_token_value = create_refresh_token(
-
-        data={
-
-            "sub":
-            user.email
-
-        }
-
-    )
-
-
+    access_token = create_access_token(data={"sub": user.email})
+    refresh_token_value = create_refresh_token(data={"sub": user.email})
 
     refresh_obj = RefreshToken(
-
         user_id=user.id,
-
         token=refresh_token_value,
-
-        expires_at=(
-
-            datetime.utcnow()
-
-            + timedelta(days=30)
-
-        ),
-
+        expires_at=datetime.utcnow() + timedelta(days=30),
         is_revoked=False
-
     )
-
-
     db.add(refresh_obj)
-
     db.commit()
 
-
-
     # -----------------------------------------
-    # REDIRECT
+    # REDIRECT TO FRONTEND
     # -----------------------------------------
-
+    frontend_url = getattr(settings, "FRONTEND_URL", "https://samrtautoposted.onrender.com")
     return RedirectResponse(
-        url=f"https://samrtautopost.onrender.com/dashboard?token={access_token}&refresh={refresh_token_value}",
+        url=f"{frontend_url}/dashboard?token={access_token}&refresh={refresh_token_value}",
         status_code=302
     )
-
 
 # ============================================================
 # INSTAGRAM LOGIN START

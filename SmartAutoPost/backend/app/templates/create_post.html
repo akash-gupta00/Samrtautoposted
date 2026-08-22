@@ -10,7 +10,9 @@
 
         <label>
             Social account
-            <select id="socialAccount" required></select>
+            <select id="socialAccount" required>
+                <option value="">Loading connected accounts...</option>
+            </select>
         </label>
 
         <!-- Direct Upload & Media Library Option (Image + Reel Video) -->
@@ -74,7 +76,7 @@
             <div class="preview-head">
                 <div class="avatar">SP</div>
                 <div>
-                    <b>SmartAutoPost</b>
+                    <b id="previewAccountName">SmartAutoPost</b>
                     <small>Just now · 🌐</small>
                 </div>
             </div>
@@ -116,20 +118,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const selectEl = document.getElementById('socialAccount');
         if (!selectEl) return;
-        const currentOrgId = typeof orgId === 'function' ? orgId() : null;
-        if (!currentOrgId) return;
+        
+        let currentOrgId = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
 
-        const accounts = await api(`/social-accounts/?organization_id=${currentOrgId}`);
+        // Fetch connected accounts
+        let endpoint = currentOrgId ? `/social-accounts/?organization_id=${currentOrgId}` : '/social-accounts/';
+        const accounts = await api(endpoint);
         const list = Array.isArray(accounts) ? accounts : (accounts.items || []);
 
         if (list.length === 0) {
-            selectEl.innerHTML = '<option value="">No accounts connected</option>';
+            selectEl.innerHTML = '<option value="">No social accounts connected</option>';
             return;
         }
 
-        selectEl.innerHTML = list.map(acc => `
-            <option value="${acc.id}">${acc.platform} - ${acc.account_name || acc.username || 'Account'}</option>
-        `).join('');
+        selectEl.innerHTML = '<option value="">-- Select Social Account --</option>' + list.map(acc => {
+            const providerName = (acc.provider || acc.platform || 'Account').toUpperCase();
+            const accountLabel = acc.account_name || acc.username || acc.page_name || 'My Profile';
+            return `<option value="${acc.id}">[${providerName}] ${accountLabel}</option>`;
+        }).join('');
+
+        // Auto select first account if only one is connected
+        if (list.length === 1) {
+            selectEl.value = list[0].id;
+            const previewName = document.getElementById('previewAccountName');
+            if (previewName) previewName.innerText = list[0].account_name || list[0].username || 'SmartAutoPost';
+        }
+
+        selectEl.addEventListener('change', (e) => {
+            const selectedText = selectEl.options[selectEl.selectedIndex]?.text || '';
+            const previewName = document.getElementById('previewAccountName');
+            if (previewName && selectedText) {
+                previewName.innerText = selectedText.split(']').pop().trim();
+            }
+        });
+
     } catch (err) {
         console.error('Failed to load social accounts:', err);
     }
@@ -368,7 +390,7 @@ async function publishDirectly() {
             return showToast('Please select or upload a photo/video first', true);
         }
 
-        if (typeof showToast === 'function') showToast('Publishing post / Reel to Instagram... 🚀');
+        if (typeof showToast === 'function') showToast('Publishing post / Reel... 🚀');
         const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
         const captionVal = document.getElementById('postCaption')?.value.trim() || '';
 
@@ -385,7 +407,7 @@ async function publishDirectly() {
         });
 
         await api(`/posts/${post.id}/publish`, { method: 'POST' });
-        if (typeof showToast === 'function') showToast('Published successfully to Instagram! 🎉');
+        if (typeof showToast === 'function') showToast('Published successfully! 🎉');
         setTimeout(() => location.href = '/posts', 1000);
     } catch (err) {
         if (typeof showToast === 'function') showToast(err.message || 'Publish failed', true);

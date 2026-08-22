@@ -501,6 +501,12 @@ def facebook_callback(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    user_agent = request.headers.get("user-agent", "").lower()
+    
+    # 1. Ignore Facebook crawler / bot requests so they don't consume the one-time code
+    if "facebookexternalhit" in user_agent or "meta-externalagent" in user_agent or "bot" in user_agent:
+        return Response(status_code=200)
+
     code = request.query_params.get("code")
     if code:
         code = code.split("#")[0].strip()
@@ -510,9 +516,7 @@ def facebook_callback(
     if not code:
         return RedirectResponse(url=f"{frontend_url}/login?error=facebook_code_missing", status_code=302)
 
-    # -----------------------------------------
-    # 1. GET USER ACCESS TOKEN
-    # -----------------------------------------
+    # 2. Exchange Code for User Access Token
     token_response = requests.get(
         "https://graph.facebook.com/v20.0/oauth/access_token",
         params={
@@ -520,26 +524,25 @@ def facebook_callback(
             "client_secret": settings.FACEBOOK_CLIENT_SECRET,
             "redirect_uri": settings.FACEBOOK_REDIRECT_URI,
             "code": code
-        }
+        },
+        timeout=15
     )
 
     token_data = token_response.json()
     user_access_token = token_data.get("access_token")
 
-    # Agar code expire/used ho chuka hai, raw JSON error na dikha kar login/dashboard par bhejein
     if not user_access_token:
         print("Facebook token error:", token_data)
-        return RedirectResponse(url=f"{frontend_url}/login?error=code_already_used", status_code=302)
+        return RedirectResponse(url=f"{frontend_url}/login?error=auth_failed", status_code=302)
 
-    # -----------------------------------------
-    # 2. GET FACEBOOK USER DETAILS
-    # -----------------------------------------
+    # 3. Get Facebook User Profile
     user_response = requests.get(
         "https://graph.facebook.com/v20.0/me",
         params={
             "fields": "id,name,email,picture",
             "access_token": user_access_token
-        }
+        },
+        timeout=15
     )
     facebook_user = user_response.json()
     facebook_id = facebook_user.get("id")
@@ -550,12 +553,11 @@ def facebook_callback(
     if facebook_user.get("picture"):
         picture = facebook_user.get("picture", {}).get("data", {}).get("url")
 
-    # -----------------------------------------
-    # 3. GET FACEBOOK PAGES
-    # -----------------------------------------
+    # 4. Get Facebook Pages (For posting permissions)
     pages_response = requests.get(
         "https://graph.facebook.com/v20.0/me/accounts",
-        params={"access_token": user_access_token}
+        params={"access_token": user_access_token},
+        timeout=15
     )
     pages_data = pages_response.json()
 
@@ -569,12 +571,9 @@ def facebook_callback(
         page_access_token = page.get("access_token")
         page_name = page.get("name")
 
-    # -----------------------------------------
-    # 4. CREATE / UPDATE DB USER
-    # -----------------------------------------
+    # 5. Find or Create User in Database
     user = db.query(User).filter(User.facebook_id == facebook_id).first()
     if not user:
-        # Check by email as fallback
         user = db.query(User).filter(User.email == email).first()
         if user:
             user.facebook_id = facebook_id
@@ -602,9 +601,7 @@ def facebook_callback(
 
     user_organization = get_or_create_personal_organization(db=db, user=user)
 
-    # -----------------------------------------
-    # 5. SAVE FACEBOOK SOCIAL ACCOUNT
-    # -----------------------------------------
+    # 6. Save Connected Facebook Social Account
     if page_id and page_access_token:
         old_account = db.query(SocialAccount).filter(
             SocialAccount.organization_id == user_organization.id,
@@ -630,9 +627,7 @@ def facebook_callback(
 
         db.commit()
 
-    # -----------------------------------------
-    # 6. GENERATE JWT & REDIRECT TO DASHBOARD
-    # -----------------------------------------
+    # 7. Generate JWT & Redirect directly to Dashboard
     access_token = create_access_token(data={"sub": user.email})
     refresh_token_value = create_refresh_token(data={"sub": user.email})
 

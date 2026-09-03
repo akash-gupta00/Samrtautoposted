@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-hero">
+    <div>
+        <p class="eyebrow">SmartAutoPost</p>
+        <h2>Post Analytics</h2>
+        <p>Inspect real-time engagement, likes, and comments for your published posts.</p>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div class="inline-form" style="display: flex; gap: 12px; align-items: center;">
+        <select id="analyticsPostSelect" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+            <option value="">Loading posts...</option>
+        </select>
+        <button class="btn primary" type="button" onclick="loadPostAnalytics()">Load Analytics</button>
+        <button class="btn" id="syncLiveBtn" type="button" onclick="syncLiveMetricsFromMeta()" style="background: #0284c7; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            🔄 Sync Live from Instagram
+        </button>
+    </div>
+</div>
+
+<!-- Metrics Quick Overview Cards -->
+<div id="metricsOverview" style="display: none; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px;">
+    <div class="card" style="text-align: center; padding: 16px; border-left: 4px solid #ef4444;">
+        <span style="font-size: 24px;">❤️</span>
+        <h3 id="metricLikes" style="font-size: 26px; margin: 8px 0 2px; font-weight: 700; color: #0f172a;">0</h3>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Total Likes</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 16px; border-left: 4px solid #3b82f6;">
+        <span style="font-size: 24px;">💬</span>
+        <h3 id="metricComments" style="font-size: 26px; margin: 8px 0 2px; font-weight: 700; color: #0f172a;">0</h3>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Comments</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 16px; border-left: 4px solid #10b981;">
+        <span style="font-size: 24px;">👁️</span>
+        <h3 id="metricImpressions" style="font-size: 26px; margin: 8px 0 2px; font-weight: 700; color: #0f172a;">0</h3>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Impressions / Reach</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 16px; border-left: 4px solid #8b5cf6;">
+        <span style="font-size: 24px;">⚡</span>
+        <h3 id="metricEngagement" style="font-size: 26px; margin: 8px 0 2px; font-weight: 700; color: #0f172a;">0</h3>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Total Interactions</p>
+    </div>
+</div>
+
+<!-- Detailed Table -->
+<div class="card">
+    <div class="card-title">
+        <h2>Analytics Records</h2>
+    </div>
+    <div id="postAnalyticsTable" class="table-wrap">
+        <div class="empty-state">Select a published post to view metrics.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allPublishedPosts = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await populatePostsDropdown();
+});
+
+async function populatePostsDropdown() {
+    const select = document.getElementById('analyticsPostSelect');
+    try {
+        const res = await api(`/posts/?organization_id=${orgId()}`);
+        const posts = Array.isArray(res) ? res : (res.items || []);
+        
+        allPublishedPosts = posts.filter(p => p.status === 'published' || p.status === 'PUBLISHED');
+
+        if (allPublishedPosts.length === 0) {
+            select.innerHTML = '<option value="">No published posts found</option>';
+            return;
+        }
+
+        select.innerHTML = allPublishedPosts.map(p => `
+            <option value="${p.id}">${p.title || 'Untitled Post'} (${new Date(p.created_at || p.scheduled_at || Date.now()).toLocaleDateString()})</option>
+        `).join('');
+
+        if (allPublishedPosts.length > 0) {
+            loadPostAnalytics();
+        }
+    } catch (err) {
+        select.innerHTML = '<option value="">Failed to load posts</option>';
+    }
+}
+
+async function loadPostAnalytics() {
+    const postId = document.getElementById('analyticsPostSelect')?.value;
+    const tableDiv = document.getElementById('postAnalyticsTable');
+    const overviewDiv = document.getElementById('metricsOverview');
+
+    if (!postId) return showToast('Please select a post', true);
+
+    tableDiv.innerHTML = '<p style="padding: 16px; color: #64748b;">Loading metrics...</p>';
+
+    try {
+        const res = await api(`/analytics/post/${postId}`);
+        const records = Array.isArray(res) ? res : (res.items || []);
+
+        if (records.length === 0) {
+            tableDiv.innerHTML = `
+                <div class="empty-state" style="padding: 24px; text-align: center;">
+                    <p style="color: #64748b; margin-bottom: 10px;">No metrics recorded yet for this post.</p>
+                    <button class="btn small primary" onclick="syncLiveMetricsFromMeta()">Click here to Sync Live from Instagram</button>
+                </div>
+            `;
+            overviewDiv.style.display = 'none';
+            return;
+        }
+
+        const latest = records[0] || {};
+        const likes = latest.likes || latest.like_count || 0;
+        const comments = latest.comments || latest.comments_count || 0;
+        const impressions = latest.impressions || latest.views || 0;
+        const reach = latest.reach || 0;
+
+        document.getElementById('metricLikes').innerText = Number(likes).toLocaleString();
+        document.getElementById('metricComments').innerText = Number(comments).toLocaleString();
+        document.getElementById('metricImpressions').innerText = Number(impressions || reach).toLocaleString();
+        document.getElementById('metricEngagement').innerText = (Number(likes) + Number(comments)).toLocaleString();
+        overviewDiv.style.display = 'grid';
+
+        tableDiv.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Count / Value</th>
+                        <th>Recorded At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Likes</td><td><b>${likes}</b></td><td>${new Date(latest.created_at || Date.now()).toLocaleString()}</td></tr>
+                    <tr><td>Comments</td><td><b>${comments}</b></td><td>${new Date(latest.created_at || Date.now()).toLocaleString()}</td></tr>
+                    <tr><td>Impressions</td><td><b>${impressions}</b></td><td>${new Date(latest.created_at || Date.now()).toLocaleString()}</td></tr>
+                    <tr><td>Reach</td><td><b>${reach}</b></td><td>${new Date(latest.created_at || Date.now()).toLocaleString()}</td></tr>
+                </tbody>
+            </table>
+        `;
+    } catch (err) {
+        tableDiv.innerHTML = `<p style="color: #ef4444; padding: 16px;">Failed to load analytics: ${err.message}</p>`;
+    }
+}
+
+async function syncLiveMetricsFromMeta() {
+    const postId = document.getElementById('analyticsPostSelect')?.value;
+    const syncBtn = document.getElementById('syncLiveBtn');
+
+    if (!postId) return showToast('Select a post first', true);
+
+    const originalText = syncBtn.innerHTML;
+    syncBtn.disabled = true;
+    syncBtn.innerHTML = '⏳ Syncing with Meta...';
+
+    try {
+        await api(`/analytics/post/${postId}/sync`, { method: 'POST' });
+        showToast('Live metrics synced successfully! 🎉');
+        await loadPostAnalytics();
+    } catch (err) {
+        showToast(err.message || 'Sync failed. Meta may take a few minutes to update count.', true);
+    } finally {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = originalText;
+    }
+}
+</script>
+{% endblock %}

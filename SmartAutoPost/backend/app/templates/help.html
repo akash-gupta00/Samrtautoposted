@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-hero"><div><p class="eyebrow">SmartAutoPost</p><h2>Help & Setup</h2><p>Local installation instructions and links for development.</p></div><a class="btn ghost" href="/docs">Open Swagger</a></div>
+<div class="docs-grid"><div class="card"><h2>Windows setup</h2><pre>python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload</pre></div><div class="card"><h2>Important URLs</h2><p><a href="/login">/login</a> – Web login</p><p><a href="/dashboard">/dashboard</a> – SaaS dashboard</p><p><a href="/docs">/docs</a> – Swagger</p><p><a href="/redoc">/redoc</a> – API reference</p><p><a href="/api/v1/health">/api/v1/health</a> – Health check</p></div><div class="card"><h2>External credentials</h2><p>PostgreSQL, Gemini/OpenAI, Meta, LinkedIn and payment credentials must be added in <code>.env</code>. They are not hard-coded in this source package.</p></div></div>
+{% endblock %}

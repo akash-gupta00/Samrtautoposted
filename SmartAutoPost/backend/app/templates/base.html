@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SmartAutoPost AI social media automation SaaS">
+    <title>{{ title }} · SmartAutoPost</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=103">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Immediate URL Token & Platform Capture -->
+    <script>
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const urlToken = params.get('token');
+                const urlRefresh = params.get('refresh');
+                const urlProvider = params.get('provider') || params.get('platform');
+
+                if (urlToken) {
+                    localStorage.setItem('access_token', urlToken);
+                    if (urlRefresh) localStorage.setItem('refresh_token', urlRefresh);
+                    if (urlProvider) {
+                        localStorage.setItem('login_provider', urlProvider);
+                        localStorage.setItem('active_platform', urlProvider);
+                    }
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch (e) {
+                console.error("Token capture error:", e);
+            }
+        })();
+    </script>
+</head>
+
+<body data-page="{{ page }}">
+
+    <div class="app-shell">
+
+        <aside class="sidebar">
+
+            <a class="brand" href="/dashboard">
+                <span class="logo">SP</span>
+                <span>Smart<span>Auto</span>Post</span>
+            </a>
+
+            <nav>
+                <p class="nav-label">Workspace</p>
+                {% set workspace = [
+                    ('dashboard', '▦', 'Dashboard'),
+                    ('create-post', '⊕', 'Create Post'),
+                    ('ai-content', '✦', 'AI Content'),
+                    ('calendar', '▦', 'Calendar'),
+                    ('posts', '▤', 'Posts'),
+                    ('analytics', '⌁', 'Analytics'),
+                    ('post-analytics', '◫', 'Post Analytics')
+                ] %}
+
+                {% for slug, icon, label in workspace %}
+                    <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}">
+                        <span>{{ icon }}</span>
+                        {{ label }}
+                    </a>
+                {% endfor %}
+
+                <p class="nav-label" id="managementLabel">Management</p>
+                {% set manage = [
+                    ('social-accounts', '●', 'Connected Accounts', false),
+                    ('media-library', '▧', 'Media Library', false),
+                    ('brand-kit', '◆', 'Brand Kit', false),
+                    ('competitors', '⚑', 'Competitors', false),
+                    ('clients', '♟', 'Clients & Team', true),
+                    ('organizations', '◇', 'Organizations', true),
+                    ('roles', '♙', 'Roles & Permissions', true)
+                ] %}
+
+                {% for slug, icon, label, admin_only in manage %}
+                    <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
+                        {% if admin_only %}data-admin-only="1"{% endif %}>
+                        <span>{{ icon }}</span>
+                        {{ label }}
+                    </a>
+                {% endfor %}
+
+                <!-- Admin & Finance Section (Hidden for normal users) -->
+                <div id="adminFinanceContainer">
+                    <p class="nav-label" data-admin-only="1">Finance & System</p>
+                    {% set system = [
+                        ('billing', '▣', 'Billing', true),
+                        ('plans', '◈', 'Plans', true),
+                        ('subscriptions', '◉', 'Subscriptions', true),
+                        ('payments', '₹', 'Payments', true),
+                        ('invoices', '▥', 'Invoices', true),
+                        ('refunds', '↩', 'Refunds', true),
+                        ('coupons', '%', 'Coupons', true),
+                        ('usage', '◌', 'Usage', true),
+                        ('audit-logs', '☷', 'Audit Logs', true),
+                        ('api-status', '⌁', 'API Status', true)
+                    ] %}
+
+                    {% for slug, icon, label, admin_only in system %}
+                        <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
+                            {% if admin_only %}data-admin-only="1"{% endif %}>
+                            <span>{{ icon }}</span>
+                            {{ label }}
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <p class="nav-label">Settings & Support</p>
+                <a href="/notifications" class="nav-item {% if page == 'notifications' %}active{% endif %}">
+                    <span>♢</span> Notifications
+                </a>
+                <a href="/settings" class="nav-item {% if page == 'settings' %}active{% endif %}">
+                    <span>⚙</span> Settings
+                </a>
+                <a href="/help" class="nav-item {% if page == 'help' %}active{% endif %}">
+                    <span>?</span> Help & Setup
+                </a>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="avatar" id="sidebarAvatar">SP</div>
+                <div>
+                    <strong id="sidebarName">User</strong>
+                    <small id="sidebarOrg">SmartAutoPost</small>
+                </div>
+                <button type="button" title="Logout" onclick="logout()">↪</button>
+            </div>
+
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <button class="mobile-menu" type="button" onclick="document.body.classList.toggle('menu-open')">☰</button>
+                    <h1>{{ title }}</h1>
+                    <span class="badge">v1.0 MVP</span>
+                </div>
+
+                <div class="top-actions">
+                    <a href="/notifications" title="Notifications">♢</a>
+                    <a href="/profile" title="Profile">◉</a>
+                    <label data-admin-only="1">
+                        Organization:
+                        <select id="organizationSelect">
+                            <option value="">Select</option>
+                        </select>
+                    </label>
+                </div>
+            </header>
+
+            <section class="content">
+                {% block content %}
+                {% endblock %}
+            </section>
+        </main>
+
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/js/api.js?v=103"></script>
+    <script src="/static/js/app.js?v=103"></script>
+    <script src="/static/js/modules.js?v=103"></script>
+
+    {% block scripts %}
+    {% endblock %}
+
+</body>
+</html>

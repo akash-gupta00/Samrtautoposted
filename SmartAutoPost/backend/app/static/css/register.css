@@ -1,0 +1,357 @@
+/* =========================================
+   SMART AUTO POST REGISTER PAGE
+========================================= */
+
+
+.register-page{
+
+    min-height:100vh;
+
+    display:flex;
+
+    background:#ffffff;
+
+}
+
+
+
+/* LEFT SIDE */
+
+.register-page .register-left{
+
+
+    width:50%;
+
+    min-height:100vh;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #4f46e5
+    );
+
+
+    color:white;
+
+    padding:70px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+
+}
+
+
+
+.register-page .register-left .logo-box{
+
+
+    width:80px;
+
+    height:80px;
+
+    background:white;
+
+    color:#2563eb;
+
+    border-radius:20px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:30px;
+
+    font-weight:800;
+
+    margin-bottom:40px;
+
+
+}
+
+
+
+.register-page .register-left h1{
+
+
+    font-size:55px;
+
+    line-height:1.1;
+
+    margin-bottom:25px;
+
+
+}
+
+
+
+.register-page .register-left p{
+
+
+    font-size:20px;
+
+    max-width:450px;
+
+    line-height:1.6;
+
+
+}
+
+
+
+
+/* RIGHT SIDE */
+
+
+.register-page .register-right{
+
+
+    width:50%;
+
+    min-height:100vh;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:40px;
+
+
+}
+
+
+
+.register-box{
+
+
+    width:100%;
+
+    max-width:420px;
+
+
+}
+
+
+
+.register-brand{
+
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    font-size:28px;
+
+    font-weight:800;
+
+    margin-bottom:40px;
+
+}
+
+
+
+.register-logo{
+
+
+    width:55px;
+
+    height:55px;
+
+    background:#4f46e5;
+
+    color:white;
+
+    border-radius:15px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+
+}
+
+
+
+.register-box h2{
+
+
+    font-size:38px;
+
+    color:#0f172a;
+
+    margin-bottom:10px;
+
+
+}
+
+
+
+.register-box .subtitle{
+
+
+    color:#64748b;
+
+    margin-bottom:35px;
+
+
+}
+
+
+
+
+/* INPUT */
+
+
+.register-box label{
+
+
+    display:block;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    color:#334155;
+
+    margin-bottom:20px;
+
+
+}
+
+
+
+.register-box input{
+
+
+    width:100%;
+
+    height:52px;
+
+    margin-top:8px;
+
+    border:1px solid #dbe3ef;
+
+    border-radius:12px;
+
+    padding:0 16px;
+
+    font-size:16px;
+
+
+}
+
+
+
+
+.register-btn{
+
+
+    width:100%;
+
+    height:52px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#2563eb;
+
+    color:white;
+
+    font-size:16px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+
+}
+
+
+
+
+.register-switch{
+
+
+    text-align:center;
+
+    margin-top:25px;
+
+    color:#64748b;
+
+
+}
+
+
+.register-switch a{
+
+
+    color:#2563eb;
+
+    font-weight:600;
+
+}
+
+
+
+
+/* RESPONSIVE */
+
+
+@media(max-width:900px){
+
+
+.register-page{
+
+
+    flex-direction:column;
+
+
+}
+
+
+.register-page .register-left,
+.register-page .register-right{
+
+
+    width:100%;
+
+
+}
+
+
+
+.register-page .register-left{
+
+
+    min-height:auto;
+
+    padding:40px;
+
+
+}
+
+
+
+.register-page .register-left h1{
+
+
+    font-size:38px;
+
+
+}
+
+
+
+}

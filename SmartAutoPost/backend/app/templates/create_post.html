@@ -1,0 +1,796 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="split">
+    <form class="card form-card" id="createPostForm" enctype="multipart/form-data">
+        <div class="card-title">
+            <h2>Create a new post / Reel</h2>
+            <span class="pill" id="mediaTypePill">Draft or schedule</span>
+        </div>
+
+        <!-- Social Accounts Checkbox Box -->
+        <div style="margin-bottom: 16px;">
+            <div id="socialAccountsContainer">
+                <p style="font-size: 13px; color: #64748b; margin: 0;">Loading connected accounts...</p>
+            </div>
+        </div>
+
+        <!-- Media Upload Section -->
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video)</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" />
+                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid #cbd5e1; font-size: 12px; cursor: pointer;">
+                    📁 Media Library
+                </button>
+            </div>
+            
+            <!-- Compact Inline AI Image Generator Bar -->
+            <div style="background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 12px; font-weight: 600; color: #475569; white-space: nowrap;">🎨 AI Image:</span>
+                <input type="text" id="aiImageGenPrompt" placeholder="Hindi, Hinglish or English me likhein (e.g. Spider-Man ka image do)..." 
+                       style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff;"
+                       onkeypress="if(event.key==='Enter'){ event.preventDefault(); generateAIImageInline(); }">
+                <button type="button" id="aiImgGenBtn" onclick="generateAIImageInline()" 
+                        style="padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                    ✨ Create AI Image
+                </button>
+            </div>
+
+            <input type="hidden" id="selectedMediaId" value="">
+            <input type="hidden" id="selectedAiImageUrl" value="">
+        </div>
+
+        <label>
+            Title / Topic
+            <input id="postTitle" placeholder="e.g. New Product Launch, Coding Tips">
+        </label>
+
+        <!-- GMB Action Button -->
+        <div id="gmbSpecialFields" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #166534;">
+                📍 Google Business Action Button (Optional)
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 12px; color: #374151;">Action Type</label>
+                    <select id="gmbCtaType" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                        <option value="">None (Standard Post)</option>
+                        <option value="LEARN_MORE">Learn More</option>
+                        <option value="BOOK">Book</option>
+                        <option value="ORDER">Order Online</option>
+                        <option value="SHOP">Shop</option>
+                        <option value="SIGN_UP">Sign Up</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #374151;">Button Link URL</label>
+                    <input id="gmbCtaUrl" type="url" placeholder="https://example.com/offer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Caption Assistant -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #4338ca;">
+                🤖 AI Caption / Custom Prompt (Optional)
+            </label>
+            <div style="display: flex; gap: 8px;">
+                <input id="aiCustomPrompt" type="text" placeholder="e.g. Write a short promotional caption..." style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+                    ✨ Generate Caption
+                </button>
+            </div>
+        </div>
+
+        <!-- Handle Finder -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap;">🏷️ Tag/Mention Finder:</span>
+                <input type="text" id="mentionSearchInput" placeholder="Enter name or handle" 
+                       style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;"
+                       onkeypress="if(event.key==='Enter'){ event.preventDefault(); searchHandle(); }">
+                <button type="button" onclick="searchHandle()" 
+                        style="padding: 6px 14px; font-size: 13px; background: #4f46e5; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                    Find Handle
+                </button>
+            </div>
+            <div id="handleChipsList" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;"></div>
+        </div>
+
+        <!-- Caption Box -->
+        <div>
+            <label style="margin-bottom: 6px; font-weight: 600; display: block;">Caption & Hashtags</label>
+            <textarea id="postCaption" rows="5" required placeholder="Upload media, write title, and compose caption..."></textarea>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <label>
+                Schedule date (Optional)
+                <input id="scheduledAt" type="datetime-local">
+            </label>
+        </div>
+
+        <div class="actions" style="display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 20px;">
+            <button class="btn ghost" type="button" onclick="location.href='/posts'">Cancel</button>
+            <button class="btn" id="directPublishSubmitBtn" type="button" style="background:#16a34a; color:#fff; font-weight:600; padding: 9px 18px; border-radius: 6px; cursor: pointer;" onclick="forceDirectPublish(this)">
+                Publish Now 🚀
+            </button>
+            <button class="btn primary" type="submit">Schedule / Create</button>
+        </div>
+    </form>
+
+    <!-- Preview Box -->
+    <div class="card preview-card">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Live Preview</h2>
+            <span id="previewTag" style="font-size: 11px; background: #e2e8f0; padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: #475569;">PREVIEW</span>
+        </div>
+        <div class="social-preview">
+            <div class="preview-head">
+                <div class="avatar" id="previewAvatar">SP</div>
+                <div>
+                    <b id="previewAccountName">SmartAutoPost</b>
+                    <small>Just now · 🌐</small>
+                </div>
+            </div>
+            <h3 id="previewTitle">Your title</h3>
+            <p id="previewCaption" style="white-space: pre-wrap;">Your caption will appear here.</p>
+            
+            <!-- Media Box (Click to Zoom) -->
+            <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative; cursor: pointer;" onclick="openImageZoomModal()" title="Click to enlarge image">
+                <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 350px; object-fit: cover; transition: transform 0.2s;" />
+                <video id="livePreviewVideo" src="" controls playsinline style="display: none; width: 100%; max-height: 350px; border-radius: 8px;"></video>
+                <span id="previewPlaceholderText" style="color: #94a3b8;">Media preview (Photo/Reel)</span>
+                
+                <!-- Hover Zoom Overlay Hint -->
+                <div id="zoomHintOverlay" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 11px; pointer-events: none;">
+                    🔍 Click to Zoom
+                </div>
+            </div>
+
+            <!-- Image Download / Save Actions Bar -->
+            <div id="mediaSaveActionToolbar" style="display: none; margin-top: 8px; gap: 8px; justify-content: flex-end;">
+                <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    🔍 Zoom
+                </button>
+                <button type="button" onclick="downloadPreviewMedia()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    ⬇️ Download
+                </button>
+                <button type="button" onclick="savePreviewToLibrary()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #2563eb;">
+                    💾 Media Library
+                </button>
+            </div>
+
+            <div id="previewCtaBtnBox" style="display: none; margin-top: 12px;">
+                <button type="button" id="previewCtaBtn" class="btn small" style="width: 100%; background: #2563eb; color: #fff; font-weight: 600; border: none; padding: 8px; border-radius: 6px;">Learn More ↗</button>
+            </div>
+
+            <div class="preview-actions" id="defaultSocialActions">
+                <span>♡ Like</span>
+                <span>◯ Comment</span>
+                <span>↗ Share</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- FULL SCREEN HD IMAGE ZOOM LIGHTBOX MODAL   -->
+<!-- ========================================== -->
+<div id="imageZoomModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px); cursor: zoom-out;" onclick="closeImageZoomModal()">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
+        <!-- Close Button -->
+        <button type="button" onclick="closeImageZoomModal()" style="position: absolute; top: -40px; right: 0; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+            &times;
+        </button>
+        <img id="modalZoomedImg" src="" alt="Enlarged Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 10px; object-fit: contain; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);" />
+        
+        <!-- Bottom Controls in Zoom Modal -->
+        <div style="position: absolute; bottom: -45px; display: flex; gap: 12px;">
+            <button type="button" onclick="downloadPreviewMedia()" style="background: #2563eb; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                ⬇️ Download HD
+            </button>
+            <button type="button" onclick="closeImageZoomModal()" style="background: rgba(255,255,255,0.2); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                Close ✕
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Media Library Modal -->
+<div id="mediaModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: #fff; width: 90%; max-width: 600px; border-radius: 12px; padding: 20px; max-height: 80vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">Select from Media Library</h3>
+            <button type="button" onclick="closeMediaModal()" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="modalMediaGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; padding: 5px;">
+            <p style="color: #64748b;">Loading media...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.connectedAccountsData = [];
+window.currentActiveMediaSrc = '';
+window.isCurrentMediaVideo = false;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadMultiAccounts();
+});
+
+// Zoom Lightbox Handlers
+window.openImageZoomModal = function() {
+    if (!window.currentActiveMediaSrc || window.isCurrentMediaVideo) return;
+    const modal = document.getElementById('imageZoomModal');
+    const zoomedImg = document.getElementById('modalZoomedImg');
+    if (modal && zoomedImg) {
+        zoomedImg.src = window.currentActiveMediaSrc;
+        modal.style.display = 'flex';
+    }
+};
+
+window.closeImageZoomModal = function() {
+    const modal = document.getElementById('imageZoomModal');
+    if (modal) modal.style.display = 'none';
+};
+
+// Keyboard ESC to close lightbox
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeImageZoomModal();
+});
+
+function checkGmbVisibility() {
+    const gmbFields = document.getElementById('gmbSpecialFields');
+    const container = document.getElementById('socialAccountsContainer');
+    if (!container || !gmbFields) return;
+
+    const checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+    const isGmbSelected = Array.from(checkedBoxes).some(cb => {
+        const prov = (cb.getAttribute('data-provider') || '').toLowerCase();
+        return prov.includes('google') || prov.includes('gmb');
+    });
+    gmbFields.style.display = isGmbSelected ? 'block' : 'none';
+}
+
+window.toggleSelectAllAccounts = function() {
+    const container = document.getElementById('socialAccountsContainer');
+    if (!container) return;
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    checkGmbVisibility();
+};
+
+async function loadMultiAccounts() {
+    const container = document.getElementById('socialAccountsContainer');
+    if (!container) return;
+
+    let currentOrgId = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+    let endpoint = currentOrgId ? `/api/v1/social-accounts/?organization_id=${currentOrgId}` : '/api/v1/social-accounts/';
+
+    try {
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        let res = await fetch(endpoint, { headers });
+        if (!res.ok) {
+            res = await fetch(currentOrgId ? `/social-accounts/?organization_id=${currentOrgId}` : '/social-accounts/', { headers });
+        }
+        const accounts = await res.json();
+        window.connectedAccountsData = Array.isArray(accounts) ? accounts : (accounts.items || []);
+
+        if (!window.connectedAccountsData.length) {
+            container.innerHTML = `
+                <div style="padding: 10px 14px; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13px; color: #64748b; background: #f8fafc;">
+                    No accounts connected. Connect accounts in the <a href="/social-accounts" style="color:#2563eb; text-decoration:underline;">Accounts tab</a> first.
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="font-weight: 600; font-size: 13px; color: #334155; margin: 0;">Target Platforms (${window.connectedAccountsData.length} connected)</label>
+                <button type="button" class="btn small ghost" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid #cbd5e1;" onclick="toggleSelectAllAccounts()">
+                    Select / Deselect All
+                </button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+        `;
+
+        window.connectedAccountsData.forEach(acc => {
+            const provider = (acc.provider || 'ACCOUNT').toUpperCase();
+            const label = acc.account_name || acc.username || 'Channel';
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; background: #ffffff; user-select: none;">
+                    <input type="checkbox" value="${acc.id}" data-provider="${(acc.provider || '').toLowerCase()}" class="social-acc-cb" checked onchange="checkGmbVisibility()" style="cursor: pointer;" />
+                    <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #334155;">${provider}</span>
+                    <span style="font-size: 13px; font-weight: 500; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+                </label>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+        checkGmbVisibility();
+
+    } catch (err) {
+        container.innerHTML = `<p style="color: red; font-size: 13px;">Error loading accounts: ${err.message}</p>`;
+    }
+}
+
+// ==========================================
+// INLINE AI IMAGE GENERATOR
+// ==========================================
+window.generateAIImageInline = async function() {
+    const promptInput = document.getElementById('aiImageGenPrompt');
+    const btn = document.getElementById('aiImgGenBtn');
+    const prompt = promptInput ? promptInput.value.trim() : '';
+
+    if (!prompt) {
+        if (typeof showToast === 'function') showToast("Please describe the image to generate! 🎨", true);
+        else alert("Please describe the image to generate!");
+        return;
+    }
+
+    const origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Creating & Saving...</span>';
+
+    try {
+        let currentOrgId = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
+
+        let res = await fetch('/api/v1/media/generate-image', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ prompt: prompt, organization_id: currentOrgId })
+        });
+
+        if (res.status === 404) {
+            res = await fetch('/media/generate-image', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ prompt: prompt, organization_id: currentOrgId })
+            });
+        }
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.detail || "Generation failed");
+        }
+
+        if (data.image_url) {
+            if (data.id) document.getElementById('selectedMediaId').value = data.id;
+            document.getElementById('selectedAiImageUrl').value = data.image_url;
+            document.getElementById('postImageFile').value = '';
+            
+            updateMediaPreview(data.image_url, false);
+            if (typeof showToast === 'function') showToast("AI Image created & saved to Media Library! 📁✨");
+        }
+    } catch (err) {
+        console.error("AI Image Generation Error:", err);
+        alert("Image generation failed: " + (err.message || err));
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+    }
+};
+
+// ==========================================
+// DOWNLOAD & SAVE MEDIA ACTIONS
+// ==========================================
+window.downloadPreviewMedia = async function() {
+    if (!window.currentActiveMediaSrc) {
+        alert("No media to download!");
+        return;
+    }
+    try {
+        const response = await fetch(window.currentActiveMediaSrc);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `SmartAutoPost_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        if (typeof showToast === 'function') showToast("Downloaded to device! ⬇️");
+    } catch (e) {
+        window.open(window.currentActiveMediaSrc, '_blank');
+    }
+};
+
+window.savePreviewToLibrary = function() {
+    const mediaId = document.getElementById('selectedMediaId')?.value;
+    if (mediaId) {
+        if (typeof showToast === 'function') showToast("Already saved in Media Library! 📁✅");
+        else alert("Already saved in Media Library!");
+    } else {
+        if (typeof showToast === 'function') showToast("Media saved to Library! 📁");
+    }
+};
+
+// ==========================================
+// DIRECT FAIL-PROOF PUBLISHER
+// ==========================================
+async function forceDirectPublish(btnEl) {
+    const checkboxes = Array.from(document.querySelectorAll('#socialAccountsContainer input[type="checkbox"]:checked'));
+    const selectedIds = checkboxes
+        .map(cb => parseInt(cb.value, 10))
+        .filter(val => !isNaN(val) && val > 0);
+
+    if (selectedIds.length === 0) {
+        alert("Please select at least one social account!");
+        return;
+    }
+
+    const orgIdVal = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+    if (!orgIdVal) {
+        alert("Organization not selected!");
+        return;
+    }
+
+    const titleVal = document.getElementById('postTitle')?.value.trim() || 'Google Post';
+    const captionVal = document.getElementById('postCaption')?.value.trim() || '';
+    const fileInput = document.getElementById('postImageFile');
+    const selectedMediaId = document.getElementById('selectedMediaId')?.value;
+    const selectedAiImageUrl = document.getElementById('selectedAiImageUrl')?.value;
+
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    const originalBtnText = btnEl ? btnEl.innerText : "Publish Now 🚀";
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerText = "Publishing to Platform... 🚀";
+    }
+
+    try {
+        let mediaIds = [];
+        if (selectedMediaId) {
+            mediaIds.push(Number(selectedMediaId));
+        } else if (fileInput && fileInput.files && fileInput.files[0]) {
+            if (typeof showToast === 'function') showToast("Uploading media file...");
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            let uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgIdVal}`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            if (uploadRes.status === 404) {
+                uploadRes = await fetch(`/media/upload?organization_id=${orgIdVal}`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+            }
+
+            const uploadData = await uploadRes.json();
+            if (uploadData && uploadData.id) {
+                mediaIds.push(uploadData.id);
+            }
+        }
+
+        if (mediaIds.length === 0 && !selectedAiImageUrl) {
+            throw new Error("Please upload a file, pick from library, or generate an AI image first.");
+        }
+
+        const payload = {
+            organization_id: orgIdVal,
+            account_ids: selectedIds,
+            title: titleVal,
+            caption: captionVal,
+            media_ids: mediaIds,
+            image_url: selectedAiImageUrl || null,
+            scheduled_at: null
+        };
+
+        let res = await fetch('/api/v1/posts/create-multi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 404) {
+            res = await fetch('/posts/create-multi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...headers },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        const resData = await res.json();
+
+        if (!res.ok) {
+            throw new Error(resData.detail || JSON.stringify(resData));
+        }
+
+        if (typeof showToast === 'function') {
+            showToast("Published successfully to selected platform! 🎉");
+        } else {
+            alert("Published successfully! 🎉");
+        }
+
+        setTimeout(() => { window.location.href = '/posts'; }, 1000);
+
+    } catch (err) {
+        console.error("Publish Exception:", err);
+        alert("Publishing Error: " + (err.message || err));
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerText = originalBtnText;
+        }
+    }
+}
+
+// Instagram Handle Search
+window.searchHandle = async function() {
+    const input = document.getElementById('mentionSearchInput');
+    let query = input?.value.trim().replace(/^@+/, '');
+    if (!query) return;
+
+    const chipsContainer = document.getElementById('handleChipsList');
+    chipsContainer.innerHTML = '<span style="font-size: 12px; color: #64748b;">🔍 Searching real Instagram user...</span>';
+
+    try {
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        let res = await fetch(`/api/v1/posts/suggest-handles?query=${encodeURIComponent(query)}`, { headers });
+        if (!res.ok) {
+            res = await fetch(`/posts/suggest-handles?query=${encodeURIComponent(query)}`, { headers });
+        }
+
+        const data = await res.json();
+        chipsContainer.innerHTML = '';
+
+        if (data.success && data.handles && data.handles.length > 0) {
+            data.handles.forEach(item => {
+                const handleStr = typeof item === 'object' ? item.handle : item;
+                const displayName = (typeof item === 'object' && item.name) ? item.name : handleStr;
+                const avatar = (typeof item === 'object' && item.avatar) ? item.avatar : '';
+
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;';
+                
+                chip.onmouseover = () => chip.style.background = '#f1f5f9';
+                chip.onmouseout = () => chip.style.background = '#ffffff';
+
+                chip.innerHTML = `
+                    ${avatar ? `<img src="${avatar}" referrerpolicy="no-referrer" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">` : `<span style="font-size: 10px; background: #e2e8f0; border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">👤</span>`}
+                    <span><b>${displayName}</b> (${handleStr})</span>
+                `;
+
+                chip.onclick = () => {
+                    const captionBox = document.getElementById('postCaption');
+                    if (captionBox) {
+                        captionBox.value = (captionBox.value.trim() + ' ' + handleStr + ' ').trimStart();
+                        captionBox.dispatchEvent(new Event('input'));
+                        if (typeof showToast === 'function') showToast(`Added ${handleStr} to caption! ✅`);
+                    }
+                };
+                chipsContainer.appendChild(chip);
+            });
+        } else {
+            chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">No real user found on Instagram.</span>';
+        }
+    } catch (err) {
+        chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">Search request failed.</span>';
+    }
+};
+
+function isVideoUrlOrFile(nameOrUrl) {
+    if (!nameOrUrl) return false;
+    const clean = nameOrUrl.split('?')[0].toLowerCase();
+    return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.m4v') || clean.endsWith('.webm') || clean.endsWith('.avi');
+}
+
+function updateMediaPreview(src, isVideo = false) {
+    window.currentActiveMediaSrc = src;
+    window.isCurrentMediaVideo = isVideo;
+    const imgEl = document.getElementById('livePreviewImg');
+    const videoEl = document.getElementById('livePreviewVideo');
+    const placeholder = document.getElementById('previewPlaceholderText');
+    const previewTag = document.getElementById('previewTag');
+    const toolbar = document.getElementById('mediaSaveActionToolbar');
+    const zoomHint = document.getElementById('zoomHintOverlay');
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (toolbar) toolbar.style.display = 'flex';
+
+    if (isVideo) {
+        if (zoomHint) zoomHint.style.display = 'none';
+        if (imgEl) imgEl.style.display = 'none';
+        if (videoEl) {
+            videoEl.src = src;
+            videoEl.style.display = 'block';
+        }
+        if (previewTag) {
+            previewTag.innerText = 'REEL / VIDEO';
+            previewTag.style.background = '#f3e8ff';
+            previewTag.style.color = '#7e22ce';
+        }
+    } else {
+        if (zoomHint) zoomHint.style.display = 'block';
+        if (videoEl) {
+            videoEl.pause();
+            videoEl.style.display = 'none';
+        }
+        if (imgEl) {
+            imgEl.src = src;
+            imgEl.style.display = 'block';
+        }
+        if (previewTag) {
+            previewTag.innerText = 'PHOTO';
+            previewTag.style.background = '#dbeafe';
+            previewTag.style.color = '#1d4ed8';
+        }
+    }
+}
+
+window.handleDirectUpload = function(event) {
+    const file = event.target.files[0];
+    const hiddenId = document.getElementById('selectedMediaId');
+    const hiddenAiUrl = document.getElementById('selectedAiImageUrl');
+
+    if (file) {
+        if (hiddenId) hiddenId.value = '';
+        if (hiddenAiUrl) hiddenAiUrl.value = '';
+        const isVideo = file.type.startsWith('video/') || isVideoUrlOrFile(file.name);
+        const objUrl = URL.createObjectURL(file);
+        updateMediaPreview(objUrl, isVideo);
+    }
+};
+
+window.openMediaLibraryModal = async function() {
+    const modal = document.getElementById('mediaModal');
+    const grid = document.getElementById('modalMediaGrid');
+    modal.style.display = 'flex';
+    grid.innerHTML = '<p>Loading your media...</p>';
+
+    try {
+        let currentOrgId = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        let res = await fetch(`/api/v1/media/list?organization_id=${currentOrgId}`, { headers });
+        if (!res.ok) {
+            res = await fetch(`/media/list?organization_id=${currentOrgId}`, { headers });
+        }
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : (data.items || []);
+        
+        if (items.length === 0) {
+            grid.innerHTML = '<p>No media files found in Media Library.</p>';
+            return;
+        }
+
+        grid.innerHTML = items.map(m => {
+            const src = m.file_url || m.url || '';
+            const isVid = (m.media_type && m.media_type.toLowerCase() === 'video') || isVideoUrlOrFile(src);
+            return `
+                <div onclick="selectLibraryMedia(${m.id}, '${src}', ${isVid})" style="border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px; position: relative; background: #000;">
+                    ${isVid ? `<video src="${src}" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;"></video><span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 4px;">🎬 Reel</span>` : `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://placehold.co/100x100?text=Error';" />`}
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        grid.innerHTML = `<p style="color: red;">Failed to load media: ${err.message}</p>`;
+    }
+};
+
+window.closeMediaModal = function() {
+    document.getElementById('mediaModal').style.display = 'none';
+};
+
+window.selectLibraryMedia = function(id, url, isVideo = false) {
+    document.getElementById('selectedMediaId').value = id;
+    document.getElementById('selectedAiImageUrl').value = '';
+    document.getElementById('postImageFile').value = '';
+    updateMediaPreview(url, isVideo);
+    closeMediaModal();
+    if (typeof showToast === 'function') showToast('Media selected from Library! ✅');
+};
+
+document.getElementById('postTitle')?.addEventListener('input', (e) => {
+    const el = document.getElementById('previewTitle');
+    if (el) el.innerText = e.target.value || 'Your title';
+});
+
+document.getElementById('postCaption')?.addEventListener('input', (e) => {
+    const el = document.getElementById('previewCaption');
+    if (el) el.innerText = e.target.value || 'Your caption will appear here.';
+});
+
+window.generateMagicCaption = async function() {
+    const btn = document.getElementById('aiMagicBtn');
+    const captionBox = document.getElementById('postCaption');
+    const titleInput = document.getElementById('postTitle');
+    const customPromptInput = document.getElementById('aiCustomPrompt');
+    const fileInput = document.getElementById('postImageFile');
+    const previewCaption = document.getElementById('previewCaption');
+
+    const originalBtnHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳ Generating...</span>';
+
+    try {
+        const formData = new FormData();
+        const customInstruction = customPromptInput?.value.trim() || '';
+        const titleText = titleInput?.value.trim() || '';
+        const currentCaption = captionBox?.value.trim() || '';
+
+        let finalPrompt = '';
+        if (customInstruction) {
+            finalPrompt = customInstruction;
+            if (currentCaption) finalPrompt += ` (Context: "${currentCaption}")`;
+        } else if (titleText) {
+            finalPrompt = `Write an engaging caption and hashtags for: ${titleText}`;
+        } else {
+            finalPrompt = "Write an engaging social media post caption with trending hashtags.";
+        }
+        
+        formData.append('prompt', finalPrompt);
+        formData.append('platform', 'Universal');
+        formData.append('generation_type', 'caption');
+
+        if (fileInput && fileInput.files && fileInput.files[0] && fileInput.files[0].type.startsWith('image/')) {
+            formData.append('image', fileInput.files[0]);
+        }
+
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        let res = await fetch('/api/v1/ai/caption', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+
+        if (res.status === 404) {
+            res = await fetch('/ai/caption', {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || data.message || 'AI generation failed');
+
+        const generatedText = data.caption || data.result || data.text || '';
+        if (generatedText) {
+            captionBox.value = generatedText;
+            if (previewCaption) previewCaption.innerText = generatedText;
+            if (typeof showToast === 'function') showToast('AI Caption generated! ✨');
+        } else {
+            throw new Error('Empty response from AI server');
+        }
+    } catch (err) {
+        console.error('AI Gen Error:', err);
+        if (typeof showToast === 'function') showToast(err.message, true);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHTML;
+    }
+};
+
+// Form Schedule Event
+document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('directPublishSubmitBtn');
+    await forceDirectPublish(btn);
+});
+</script>
+{% endblock %}

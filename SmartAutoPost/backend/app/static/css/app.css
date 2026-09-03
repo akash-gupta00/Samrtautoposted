@@ -1,0 +1,31 @@
+/* SmartAutoPost main stylesheet */
+
+/* Variables and themes */
+@import url("./tokens.css");
+
+/* Existing common design */
+@import url("./legacy.css");
+
+/* Reusable components */
+@import url("./components.css");
+
+/* Individual page styles */
+@import url("./pages.css");
+
+/* Extra responsive page rules */
+@import url("./responsive.css");
+
+/* Final application layout overrides */
+@import url("./layout.css");
+
+/* ROLE-BASED SIDEBAR VISIBILITY */
+body:not([data-role="admin"]) [data-admin-only] {
+    display: none !important;
+}
+
+/* CONNECTED ACCOUNTS: sirf email/Gmail se register hue users ko
+   dikhta hai. Instagram/Facebook/LinkedIn se login hue users ka
+   account already auto-connect ho chuka hota hai. */
+body:not([data-auth-provider="email"]) [data-email-only] {
+    display: none !important;
+}

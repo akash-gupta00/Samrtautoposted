@@ -1,0 +1,541 @@
+/* =========================================
+ SMART AUTO POST AUTH PAGE
+ LOGIN + REGISTER RESPONSIVE DESIGN
+========================================= */
+
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+
+html,
+body{
+
+    width:100%;
+    height:100%;
+
+    font-family:'Inter',sans-serif;
+
+}
+
+
+
+/* ===============================
+ AUTH WRAPPER
+================================ */
+
+
+.auth-body{
+
+    width:100%;
+
+    min-height:100vh;
+
+    overflow-x:hidden;
+
+}
+
+
+
+.auth-wrapper{
+
+    width:100%;
+
+    min-height:100vh;
+
+    display:flex;
+
+}
+
+
+
+
+
+/* ===============================
+ LEFT VISUAL SECTION
+================================ */
+
+
+.auth-visual{
+
+    width:50%;
+
+    min-height:100vh;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #4f46e5
+    );
+
+    color:white;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    padding:60px;
+
+}
+
+
+
+.auth-mark{
+
+    width:80px;
+
+    height:80px;
+
+    background:white;
+
+    color:#2563eb;
+
+    border-radius:20px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:28px;
+
+    font-weight:800;
+
+    margin-bottom:35px;
+
+}
+
+
+
+.auth-visual h1{
+
+
+    font-size:48px;
+
+    line-height:1.2;
+
+    margin-bottom:25px;
+
+
+}
+
+
+
+.auth-visual p{
+
+
+    font-size:20px;
+
+    line-height:1.5;
+
+    max-width:450px;
+
+
+}
+
+
+
+.auth-stats{
+
+
+    display:flex;
+
+    gap:60px;
+
+    margin-top:50px;
+
+
+}
+
+
+
+.auth-stats b{
+
+
+    display:block;
+
+    font-size:36px;
+
+
+}
+
+
+
+.auth-stats span{
+
+
+    font-size:16px;
+
+
+}
+
+
+
+
+
+/* ===============================
+ RIGHT FORM SECTION
+================================ */
+
+
+.auth-panel{
+
+
+    width:50%;
+
+    min-height:100vh;
+
+    background:white;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    padding:40px;
+
+
+}
+
+
+
+
+
+.auth-card{
+
+
+    width:100%;
+
+    max-width:420px;
+
+}
+
+
+
+
+
+/* BRAND */
+
+
+.auth-brand{
+
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    font-size:26px;
+
+    font-weight:800;
+
+    margin-bottom:35px;
+
+    text-decoration:none;
+
+    color:#0f172a;
+
+
+}
+
+
+
+.logo{
+
+
+    width:55px;
+
+    height:55px;
+
+    border-radius:15px;
+
+    background:#4f46e5;
+
+    color:white;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:20px;
+
+    font-weight:700;
+
+}
+
+
+
+
+
+/* TITLE */
+
+
+.auth-card h2{
+
+
+    font-size:36px;
+
+    color:#0f172a;
+
+    margin-bottom:12px;
+
+
+}
+
+
+
+.muted{
+
+
+    color:#64748b;
+
+    font-size:16px;
+
+    margin-bottom:30px;
+
+
+}
+
+
+
+
+
+/* FORM */
+
+
+.auth-card label{
+
+
+    display:block;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    color:#334155;
+
+    margin-bottom:18px;
+
+
+}
+
+
+
+.auth-card input{
+
+
+    width:100%;
+
+    height:52px;
+
+    margin-top:8px;
+
+    border-radius:12px;
+
+    border:1px solid #dbe3ef;
+
+    padding:0 16px;
+
+    font-size:16px;
+
+    outline:none;
+
+
+}
+
+
+
+.auth-card input:focus{
+
+
+    border-color:#2563eb;
+
+
+}
+
+
+
+
+/* BUTTON */
+
+
+.btn.primary,
+.login-btn{
+
+
+    width:100%;
+
+    height:52px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#2563eb;
+
+    color:white;
+
+    font-size:16px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+    margin-top:10px;
+
+
+}
+
+
+
+
+
+
+/* SWITCH LINK */
+
+
+.auth-switch{
+
+
+    margin-top:25px;
+
+    text-align:center;
+
+    color:#64748b;
+
+
+}
+
+
+.auth-switch a{
+
+
+    color:#2563eb;
+
+    text-decoration:none;
+
+    font-weight:600;
+
+
+}
+
+
+
+
+
+/* ===============================
+ MOBILE
+================================ */
+
+
+@media(max-width:900px){
+
+
+
+.auth-wrapper{
+
+
+    flex-direction:column;
+
+
+}
+
+
+
+.auth-visual{
+
+
+    width:100%;
+
+    min-height:auto;
+
+    padding:40px;
+
+
+}
+
+
+
+.auth-panel{
+
+
+    width:100%;
+
+    min-height:auto;
+
+    padding:30px;
+
+
+}
+
+
+
+.auth-visual h1{
+
+
+    font-size:36px;
+
+
+}
+
+
+
+.auth-stats{
+
+
+    gap:30px;
+
+
+}
+
+
+
+}
+
+
+
+
+@media(max-width:500px){
+
+
+
+.auth-visual h1{
+
+
+    font-size:30px;
+
+
+}
+
+
+
+.auth-card h2{
+
+
+    font-size:28px;
+
+
+}
+
+
+
+.auth-stats{
+
+
+    flex-direction:column;
+
+
+}
+
+
+}

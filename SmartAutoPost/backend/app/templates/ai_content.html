@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="split">
+  <form class="card form-card" id="aiForm" enctype="multipart/form-data">
+    <div class="card-title">
+      <h2>AI Content Generator</h2>
+      <span class="pill">Powered by Gemini</span>
+    </div>
+
+    <label>Generation type
+      <select id="aiType">
+        <option value="caption">Caption & Hashtags</option>
+        <option value="hashtags">Hashtags Only</option>
+        <option value="seo">SEO Content</option>
+        <option value="image">Image Prompt</option>
+      </select>
+    </label>
+
+    <label>Platform
+      <select id="aiPlatform">
+        <option value="Instagram">Instagram</option>
+        <option value="Facebook">Facebook</option>
+        <option value="LinkedIn">LinkedIn</option>
+        <option value="Threads">Threads</option>
+      </select>
+    </label>
+
+    <!-- Image Upload Field -->
+    <label>Upload Image (Optional)
+      <input type="file" id="aiImage" accept="image/*" style="display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" onchange="previewImage(event)" />
+    </label>
+    
+    <!-- Image Preview Box -->
+    <div id="imagePreviewContainer" style="display: none; margin-bottom: 12px; text-align: center;">
+      <img id="imagePreview" src="" alt="Preview" style="max-height: 160px; max-width: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;" />
+    </div>
+
+    <label>Prompt / Context
+      <textarea id="aiPrompt" rows="5" placeholder="e.g. Coding image upload kar raha hu, iske liye relatable caption aur viral tags do..."></textarea>
+    </label>
+
+    <button type="submit" id="generateBtn" class="btn primary full">✦ Generate Content</button>
+  </form>
+
+  <div class="card">
+    <div class="card-title">
+      <h2>Generated Result</h2>
+      <button class="btn small" type="button" onclick="copyAI()">Copy</button>
+    </div>
+    <div id="aiResult" class="result-large" style="white-space: pre-wrap;">Your AI generated content will appear here.</div>
+  </div>
+</div>
+
+<script>
+function previewImage(event) {
+  const file = event.target.files[0];
+  const container = document.getElementById("imagePreviewContainer");
+  const img = document.getElementById("imagePreview");
+  
+  if (file) {
+    img.src = URL.createObjectURL(file);
+    container.style.display = "block";
+  } else {
+    container.style.display = "none";
+  }
+}
+
+document.getElementById("aiForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+  
+  const generateBtn = document.getElementById("generateBtn");
+  const resultBox = document.getElementById("aiResult");
+  const promptVal = document.getElementById("aiPrompt").value.trim();
+  const platformVal = document.getElementById("aiPlatform").value;
+  const typeVal = document.getElementById("aiType").value;
+  const fileInput = document.getElementById("aiImage");
+
+  generateBtn.disabled = true;
+  generateBtn.innerText = "Generating with Gemini...";
+  resultBox.innerText = "Analyzing your input and generating content...";
+
+  try {
+    const formData = new FormData();
+    formData.append("prompt", promptVal);
+    formData.append("platform", platformVal);
+    formData.append("generation_type", typeVal);
+    
+    if (fileInput.files[0]) {
+      formData.append("image", fileInput.files[0]);
+    }
+
+    const response = await fetch("/api/v1/ai/caption", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "Failed to generate content");
+    }
+
+    const resultText = data.caption || data.result || data.content || JSON.stringify(data, null, 2);
+    resultBox.innerText = resultText;
+  } catch (err) {
+    resultBox.innerText = "Error: " + err.message;
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.innerText = "✦ Generate Content";
+  }
+});
+
+function copyAI() {
+  const text = document.getElementById("aiResult").innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Copied to clipboard!");
+  });
+}
+</script>
+{% endblock %}

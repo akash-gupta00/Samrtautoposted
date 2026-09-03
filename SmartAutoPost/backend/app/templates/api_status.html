@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block content %}
+<div class="page-hero"><div><p class="eyebrow">SmartAutoPost</p><h2>API Status</h2><p>Quickly verify backend health, authentication and configured modules.</p></div></div>
+<div class="metric-grid compact"><div class="metric"><span>Backend</span><b id="healthStatus">Checking…</b></div><div class="metric"><span>Authentication</span><b id="authStatus">—</b></div><div class="metric"><span>Organization</span><b id="orgStatus">—</b></div><div class="metric"><span>Swagger</span><b><a href="/docs">Open</a></b></div></div><div class="card"><h2>Included API modules</h2><div class="module-grid">Auth · Organizations · Members · Roles · Permissions · Posts · Scheduling · Publishing · Media · AI · Dashboard · Analytics · Social Accounts · Notifications · Plans · Subscriptions · Payments · Invoices · Refunds · Coupons · Usage · Competitors · Brand Kit · Audit Logs</div></div>
+{% endblock %}

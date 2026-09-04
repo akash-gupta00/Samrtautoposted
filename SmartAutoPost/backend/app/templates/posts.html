@@ -4,8 +4,8 @@
 <div class="card" style="padding: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #0f172a;">Posts</h2>
-            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Manage, schedule, and view real-time publishing status across platforms.</p>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: var(--bg-input);">Posts</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-muted);">Manage, schedule, and view real-time publishing status across platforms.</p>
         </div>
         <a href="/create-post" class="btn primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
             <span>+</span> Create Post
@@ -15,7 +15,7 @@
     <!-- Search & Filter Bar -->
     <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
         <input type="text" id="postSearchInput" placeholder="Search posts..." 
-               style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;"
+               style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px;"
                oninput="filterPostsTable()">
 
         <div style="display: flex; gap: 6px;">
@@ -28,10 +28,10 @@
     </div>
 
     <!-- Posts Table -->
-    <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+    <div style="overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: 8px;">
         <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
             <thead>
-                <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">
+                <tr style="background: var(--bg-input); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); font-weight: 600;">
                     <th style="padding: 12px 16px; width: 45%;">TITLE / CONTENT</th>
                     <th style="padding: 12px 16px;">PLATFORM</th>
                     <th style="padding: 12px 16px;">STATUS</th>
@@ -41,7 +41,7 @@
             </thead>
             <tbody id="postsTableBody">
                 <tr>
-                    <td colspan="5" style="padding: 24px; text-align: center; color: #64748b;">Loading posts...</td>
+                    <td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted);">Loading posts...</td>
                 </tr>
             </tbody>
         </table>
@@ -79,7 +79,7 @@ async function loadPostsList() {
         renderPostsTable();
 
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: #ef4444;">Failed to load posts: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--danger);">Failed to load posts: ${err.message}</td></tr>`;
     }
 }
 
@@ -96,7 +96,7 @@ function renderPostsTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 32px; text-align: center; color: #64748b;">No posts found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 32px; text-align: center; color: var(--text-muted);">No posts found.</td></tr>`;
         return;
     }
 
@@ -108,43 +108,43 @@ function renderPostsTable() {
         
         let statusBadge = '';
         if (status === 'published') {
-            statusBadge = '<span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">published</span>';
+            statusBadge = '<span style="background: var(--success-bg); color: var(--success); padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">published</span>';
         } else if (status === 'scheduled') {
-            statusBadge = '<span style="background: #fef9c3; color: #854d0e; padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">scheduled</span>';
+            statusBadge = '<span style="background: var(--warning-bg); color: var(--warning); padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">scheduled</span>';
         } else if (status === 'failed') {
-            statusBadge = '<span style="background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">failed</span>';
+            statusBadge = '<span style="background: var(--danger-bg); color: var(--danger); padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">failed</span>';
         } else {
-            statusBadge = '<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">draft</span>';
+            statusBadge = '<span style="background: var(--bg-hover); color: var(--text-secondary); padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">draft</span>';
         }
 
         const scheduledTime = post.scheduled_at ? new Date(post.scheduled_at).toLocaleString() : '—';
 
         let actionButtons = `
             <button class="btn small" style="background: #2563eb; color: #fff; border: none; font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="publishPostDirectly(${post.id}, this)">Publish</button>
-            <button class="btn small ghost" style="font-size: 11px; padding: 4px 8px; border: 1px solid #cbd5e1; cursor: pointer; border-radius: 4px;" onclick="editPostItem(${post.id})">Edit</button>
-            <button class="btn small ghost" style="color: #ef4444; border: 1px solid #fca5a5; font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="deletePostItem(${post.id})">Delete</button>
+            <button class="btn small ghost" style="font-size: 11px; padding: 4px 8px; border: 1px solid var(--border-default); cursor: pointer; border-radius: 4px;" onclick="editPostItem(${post.id})">Edit</button>
+            <button class="btn small ghost" style="color: var(--danger); border: 1px solid var(--danger-border); font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="deletePostItem(${post.id})">Delete</button>
         `;
 
         if (status === 'published') {
             actionButtons = `
-                <button class="btn small ghost" style="font-size: 11px; padding: 4px 8px; border: 1px solid #cbd5e1; cursor: pointer; border-radius: 4px;" onclick="editPostItem(${post.id})">Edit</button>
-                <button class="btn small ghost" style="color: #ef4444; border: 1px solid #fca5a5; font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="deletePostItem(${post.id})">Delete</button>
+                <button class="btn small ghost" style="font-size: 11px; padding: 4px 8px; border: 1px solid var(--border-default); cursor: pointer; border-radius: 4px;" onclick="editPostItem(${post.id})">Edit</button>
+                <button class="btn small ghost" style="color: var(--danger); border: 1px solid var(--danger-border); font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="deletePostItem(${post.id})">Delete</button>
             `;
         }
 
         return `
-            <tr style="border-bottom: 1px solid #f1f5f9;">
+            <tr style="border-bottom: 1px solid var(--bg-hover);">
                 <td style="padding: 12px 16px;">
-                    <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">${escapeHtml(title)}</div>
-                    <div style="color: #64748b; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px;">${escapeHtml(caption)}</div>
+                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">${escapeHtml(title)}</div>
+                    <div style="color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px;">${escapeHtml(caption)}</div>
                 </td>
-                <td style="padding: 12px 16px; color: #475569; font-weight: 500;">
+                <td style="padding: 12px 16px; color: var(--text-secondary); font-weight: 500;">
                     ${platform}
                 </td>
                 <td style="padding: 12px 16px;">
                     ${statusBadge}
                 </td>
-                <td style="padding: 12px 16px; color: #64748b; font-size: 12px;">
+                <td style="padding: 12px 16px; color: var(--text-muted); font-size: 12px;">
                     ${scheduledTime}
                 </td>
                 <td style="padding: 12px 16px; text-align: right;">

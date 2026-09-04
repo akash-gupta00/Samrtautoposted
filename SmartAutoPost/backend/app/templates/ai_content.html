@@ -28,12 +28,12 @@
 
     <!-- Image Upload Field -->
     <label>Upload Image (Optional)
-      <input type="file" id="aiImage" accept="image/*" style="display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" onchange="previewImage(event)" />
+      <input type="file" id="aiImage" accept="image/*" style="display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px dashed var(--border-default); border-radius: var(--r-md); cursor: pointer; background: var(--bg-input);" onchange="previewImage(event)" />
     </label>
     
     <!-- Image Preview Box -->
     <div id="imagePreviewContainer" style="display: none; margin-bottom: 12px; text-align: center;">
-      <img id="imagePreview" src="" alt="Preview" style="max-height: 160px; max-width: 100%; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;" />
+      <img id="imagePreview" src="" alt="Preview" style="max-height: 160px; max-width: 100%; border-radius: var(--r-md); object-fit: cover; border: 1px solid var(--border-default);" />
     </div>
 
     <label>Prompt / Context

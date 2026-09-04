@@ -11,7 +11,7 @@
         <!-- Social Accounts Checkbox Box -->
         <div style="margin-bottom: 16px;">
             <div id="socialAccountsContainer">
-                <p style="font-size: 13px; color: #64748b; margin: 0;">Loading connected accounts...</p>
+                <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Loading connected accounts...</p>
             </div>
         </div>
 
@@ -19,17 +19,17 @@
         <div style="margin-bottom: 15px;">
             <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video)</label>
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed #cbd5e1; border-radius: 8px; cursor: pointer;" />
-                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid #cbd5e1; font-size: 12px; cursor: pointer;">
+                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed var(--border-default); border-radius: 8px; cursor: pointer;" />
+                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid var(--border-default); font-size: 12px; cursor: pointer;">
                     📁 Media Library
                 </button>
             </div>
             
             <!-- Compact Inline AI Image Generator Bar -->
-            <div style="background: #f1f5f9; border: 1px dashed #94a3b8; border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 12px; font-weight: 600; color: #475569; white-space: nowrap;">🎨 AI Image:</span>
+            <div style="background: var(--bg-hover); border: 1px dashed var(--border-hover); border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">🎨 AI Image:</span>
                 <input type="text" id="aiImageGenPrompt" placeholder="Hindi, Hinglish or English me likhein (e.g. Spider-Man ka image do)..." 
-                       style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff;"
+                       style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-default); border-radius: 6px; outline: none; background: #fff;"
                        onkeypress="if(event.key==='Enter'){ event.preventDefault(); generateAIImageInline(); }">
                 <button type="button" id="aiImgGenBtn" onclick="generateAIImageInline()" 
                         style="padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
@@ -47,14 +47,14 @@
         </label>
 
         <!-- GMB Action Button -->
-        <div id="gmbSpecialFields" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #166534;">
+        <div id="gmbSpecialFields" style="display: none; background: var(--success-bg); border: 1px solid var(--success-border); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: var(--success);">
                 📍 Google Business Action Button (Optional)
             </label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div>
-                    <label style="font-size: 12px; color: #374151;">Action Type</label>
-                    <select id="gmbCtaType" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                    <label style="font-size: 12px; color: var(--text-secondary);">Action Type</label>
+                    <select id="gmbCtaType" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-default); font-size: 13px;">
                         <option value="">None (Standard Post)</option>
                         <option value="LEARN_MORE">Learn More</option>
                         <option value="BOOK">Book</option>
@@ -64,19 +64,19 @@
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 12px; color: #374151;">Button Link URL</label>
-                    <input id="gmbCtaUrl" type="url" placeholder="https://example.com/offer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;">
+                    <label style="font-size: 12px; color: var(--text-secondary);">Button Link URL</label>
+                    <input id="gmbCtaUrl" type="url" placeholder="https://example.com/offer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-default); font-size: 13px;">
                 </div>
             </div>
         </div>
 
         <!-- AI Caption Assistant -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #4338ca;">
+        <div style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: var(--brand-400);">
                 🤖 AI Caption / Custom Prompt (Optional)
             </label>
             <div style="display: flex; gap: 8px;">
-                <input id="aiCustomPrompt" type="text" placeholder="e.g. Write a short promotional caption..." style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
+                <input id="aiCustomPrompt" type="text" placeholder="e.g. Write a short promotional caption..." style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px;">
                 <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
                     ✨ Generate Caption
                 </button>
@@ -84,11 +84,11 @@
         </div>
 
         <!-- Handle Finder -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+        <div style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
             <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 13px; font-weight: 600; color: #334155; white-space: nowrap;">🏷️ Tag/Mention Finder:</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">🏷️ Tag/Mention Finder:</span>
                 <input type="text" id="mentionSearchInput" placeholder="Enter name or handle" 
-                       style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;"
+                       style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border-default); border-radius: 6px; outline: none;"
                        onkeypress="if(event.key==='Enter'){ event.preventDefault(); searchHandle(); }">
                 <button type="button" onclick="searchHandle()" 
                         style="padding: 6px 14px; font-size: 13px; background: #4f46e5; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap;">
@@ -113,7 +113,7 @@
 
         <div class="actions" style="display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 20px;">
             <button class="btn ghost" type="button" onclick="location.href='/posts'">Cancel</button>
-            <button class="btn" id="directPublishSubmitBtn" type="button" style="background:#16a34a; color:#fff; font-weight:600; padding: 9px 18px; border-radius: 6px; cursor: pointer;" onclick="forceDirectPublish(this)">
+            <button class="btn" id="directPublishSubmitBtn" type="button" style="background:var(--success); color:#fff; font-weight:600; padding: 9px 18px; border-radius: 6px; cursor: pointer;" onclick="forceDirectPublish(this)">
                 Publish Now 🚀
             </button>
             <button class="btn primary" type="submit">Schedule / Create</button>
@@ -124,7 +124,7 @@
     <div class="card preview-card">
         <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Live Preview</h2>
-            <span id="previewTag" style="font-size: 11px; background: #e2e8f0; padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: #475569;">PREVIEW</span>
+            <span id="previewTag" style="font-size: 11px; background: var(--border-subtle); padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: var(--text-secondary);">PREVIEW</span>
         </div>
         <div class="social-preview">
             <div class="preview-head">
@@ -141,7 +141,7 @@
             <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative; cursor: pointer;" onclick="openImageZoomModal()" title="Click to enlarge image">
                 <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 350px; object-fit: cover; transition: transform 0.2s;" />
                 <video id="livePreviewVideo" src="" controls playsinline style="display: none; width: 100%; max-height: 350px; border-radius: 8px;"></video>
-                <span id="previewPlaceholderText" style="color: #94a3b8;">Media preview (Photo/Reel)</span>
+                <span id="previewPlaceholderText" style="color: var(--border-hover);">Media preview (Photo/Reel)</span>
                 
                 <!-- Hover Zoom Overlay Hint -->
                 <div id="zoomHintOverlay" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 11px; pointer-events: none;">
@@ -151,13 +151,13 @@
 
             <!-- Image Download / Save Actions Bar -->
             <div id="mediaSaveActionToolbar" style="display: none; margin-top: 8px; gap: 8px; justify-content: flex-end;">
-                <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     🔍 Zoom
                 </button>
-                <button type="button" onclick="downloadPreviewMedia()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <button type="button" onclick="downloadPreviewMedia()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     ⬇️ Download
                 </button>
-                <button type="button" onclick="savePreviewToLibrary()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #2563eb;">
+                <button type="button" onclick="savePreviewToLibrary()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px; color: #2563eb;">
                     💾 Media Library
                 </button>
             </div>
@@ -206,7 +206,7 @@
             <button type="button" onclick="closeMediaModal()" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
         </div>
         <div id="modalMediaGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; padding: 5px;">
-            <p style="color: #64748b;">Loading media...</p>
+            <p style="color: var(--text-muted);">Loading media...</p>
         </div>
     </div>
 </div>
@@ -285,7 +285,7 @@ async function loadMultiAccounts() {
 
         if (!window.connectedAccountsData.length) {
             container.innerHTML = `
-                <div style="padding: 10px 14px; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13px; color: #64748b; background: #f8fafc;">
+                <div style="padding: 10px 14px; border: 1px dashed var(--border-default); border-radius: 8px; font-size: 13px; color: var(--text-muted); background: var(--bg-input);">
                     No accounts connected. Connect accounts in the <a href="/social-accounts" style="color:#2563eb; text-decoration:underline;">Accounts tab</a> first.
                 </div>
             `;
@@ -294,8 +294,8 @@ async function loadMultiAccounts() {
 
         let html = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="font-weight: 600; font-size: 13px; color: #334155; margin: 0;">Target Platforms (${window.connectedAccountsData.length} connected)</label>
-                <button type="button" class="btn small ghost" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid #cbd5e1;" onclick="toggleSelectAllAccounts()">
+                <label style="font-weight: 600; font-size: 13px; color: var(--text-secondary); margin: 0;">Target Platforms (${window.connectedAccountsData.length} connected)</label>
+                <button type="button" class="btn small ghost" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-default);" onclick="toggleSelectAllAccounts()">
                     Select / Deselect All
                 </button>
             </div>
@@ -306,10 +306,10 @@ async function loadMultiAccounts() {
             const provider = (acc.provider || 'ACCOUNT').toUpperCase();
             const label = acc.account_name || acc.username || 'Channel';
             html += `
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; background: #ffffff; user-select: none;">
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; background: var(--bg-input); user-select: none;">
                     <input type="checkbox" value="${acc.id}" data-provider="${(acc.provider || '').toLowerCase()}" class="social-acc-cb" checked onchange="checkGmbVisibility()" style="cursor: pointer;" />
-                    <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #334155;">${provider}</span>
-                    <span style="font-size: 13px; font-weight: 500; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+                    <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: var(--bg-hover); color: var(--text-secondary);">${provider}</span>
+                    <span style="font-size: 13px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
                 </label>
             `;
         });
@@ -540,7 +540,7 @@ window.searchHandle = async function() {
     if (!query) return;
 
     const chipsContainer = document.getElementById('handleChipsList');
-    chipsContainer.innerHTML = '<span style="font-size: 12px; color: #64748b;">🔍 Searching real Instagram user...</span>';
+    chipsContainer.innerHTML = '<span style="font-size: 12px; color: var(--text-muted);">🔍 Searching real Instagram user...</span>';
 
     try {
         const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
@@ -562,13 +562,13 @@ window.searchHandle = async function() {
 
                 const chip = document.createElement('button');
                 chip.type = 'button';
-                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;';
+                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;';
                 
-                chip.onmouseover = () => chip.style.background = '#f1f5f9';
-                chip.onmouseout = () => chip.style.background = '#ffffff';
+                chip.onmouseover = () => chip.style.background = 'var(--bg-hover)';
+                chip.onmouseout = () => chip.style.background = 'var(--bg-input)';
 
                 chip.innerHTML = `
-                    ${avatar ? `<img src="${avatar}" referrerpolicy="no-referrer" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">` : `<span style="font-size: 10px; background: #e2e8f0; border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">👤</span>`}
+                    ${avatar ? `<img src="${avatar}" referrerpolicy="no-referrer" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">` : `<span style="font-size: 10px; background: var(--border-subtle); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">👤</span>`}
                     <span><b>${displayName}</b> (${handleStr})</span>
                 `;
 
@@ -618,8 +618,8 @@ function updateMediaPreview(src, isVideo = false) {
         }
         if (previewTag) {
             previewTag.innerText = 'REEL / VIDEO';
-            previewTag.style.background = '#f3e8ff';
-            previewTag.style.color = '#7e22ce';
+            previewTag.style.background = 'var(--grad-brand-soft)';
+            previewTag.style.color = 'var(--violet-500)';
         }
     } else {
         if (zoomHint) zoomHint.style.display = 'block';
@@ -633,8 +633,8 @@ function updateMediaPreview(src, isVideo = false) {
         }
         if (previewTag) {
             previewTag.innerText = 'PHOTO';
-            previewTag.style.background = '#dbeafe';
-            previewTag.style.color = '#1d4ed8';
+            previewTag.style.background = 'var(--info-bg)';
+            previewTag.style.color = 'var(--info)';
         }
     }
 }
@@ -680,7 +680,7 @@ window.openMediaLibraryModal = async function() {
             const src = m.file_url || m.url || '';
             const isVid = (m.media_type && m.media_type.toLowerCase() === 'video') || isVideoUrlOrFile(src);
             return `
-                <div onclick="selectLibraryMedia(${m.id}, '${src}', ${isVid})" style="border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px; position: relative; background: #000;">
+                <div onclick="selectLibraryMedia(${m.id}, '${src}', ${isVid})" style="border: 2px solid var(--border-subtle); border-radius: 8px; cursor: pointer; overflow: hidden; height: 100px; position: relative; background: #000;">
                     ${isVid ? `<video src="${src}" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;"></video><span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 4px;">🎬 Reel</span>` : `<img src="${src}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://placehold.co/100x100?text=Error';" />`}
                 </div>
             `;

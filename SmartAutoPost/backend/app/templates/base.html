@@ -1,19 +1,23 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="SmartAutoPost AI social media automation SaaS">
+    <meta name="description" content="SmartAutoPost - Next-Gen AI Social Automation">
     <title>{{ title }} · SmartAutoPost</title>
 
+    <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/app.css?v=103">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Immediate URL Token & Platform Capture -->
+    <link rel="stylesheet" href="/static/css/app.css?v=105">
+
     <script>
         (function() {
             try {
@@ -42,6 +46,7 @@
 
     <div class="app-shell">
 
+        <!-- Sidebar -->
         <aside class="sidebar">
 
             <a class="brand" href="/dashboard">
@@ -52,102 +57,115 @@
             <nav>
                 <p class="nav-label">Workspace</p>
                 {% set workspace = [
-                    ('dashboard', '▦', 'Dashboard'),
-                    ('create-post', '⊕', 'Create Post'),
-                    ('ai-content', '✦', 'AI Content'),
-                    ('calendar', '▦', 'Calendar'),
-                    ('posts', '▤', 'Posts'),
-                    ('analytics', '⌁', 'Analytics'),
-                    ('post-analytics', '◫', 'Post Analytics')
+                    ('dashboard', 'layout-dashboard', 'Dashboard'),
+                    ('create-post', 'plus-circle', 'Create Post'),
+                    ('ai-content', 'sparkles', 'AI Content'),
+                    ('calendar', 'calendar', 'Calendar'),
+                    ('posts', 'send', 'Posts'),
+                    ('analytics', 'bar-chart-3', 'Analytics'),
+                    ('post-analytics', 'line-chart', 'Post Analytics')
                 ] %}
 
                 {% for slug, icon, label in workspace %}
                     <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}">
-                        <span>{{ icon }}</span>
-                        {{ label }}
+                        <i data-lucide="{{ icon }}"></i>
+                        <span>{{ label }}</span>
                     </a>
                 {% endfor %}
 
                 <p class="nav-label" id="managementLabel">Management</p>
                 {% set manage = [
-                    ('social-accounts', '●', 'Connected Accounts', false),
-                    ('media-library', '▧', 'Media Library', false),
-                    ('brand-kit', '◆', 'Brand Kit', false),
-                    ('competitors', '⚑', 'Competitors', false),
-                    ('clients', '♟', 'Clients & Team', true),
-                    ('organizations', '◇', 'Organizations', true),
-                    ('roles', '♙', 'Roles & Permissions', true)
+                    ('social-accounts', 'share-2', 'Connected Accounts', false),
+                    ('media-library', 'folder-image', 'Media Library', false),
+                    ('brand-kit', 'palette', 'Brand Kit', false),
+                    ('competitors', 'crosshair', 'Competitors', false),
+                    ('clients', 'users', 'Clients & Team', true),
+                    ('organizations', 'building', 'Organizations', true),
+                    ('roles', 'shield', 'Roles & Permissions', true)
                 ] %}
 
                 {% for slug, icon, label, admin_only in manage %}
                     <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
                         {% if admin_only %}data-admin-only="1"{% endif %}>
-                        <span>{{ icon }}</span>
-                        {{ label }}
+                        <i data-lucide="{{ icon }}"></i>
+                        <span>{{ label }}</span>
                     </a>
                 {% endfor %}
 
-                <!-- Admin & Finance Section (Hidden for normal users) -->
                 <div id="adminFinanceContainer">
                     <p class="nav-label" data-admin-only="1">Finance & System</p>
                     {% set system = [
-                        ('billing', '▣', 'Billing', true),
-                        ('plans', '◈', 'Plans', true),
-                        ('subscriptions', '◉', 'Subscriptions', true),
-                        ('payments', '₹', 'Payments', true),
-                        ('invoices', '▥', 'Invoices', true),
-                        ('refunds', '↩', 'Refunds', true),
-                        ('coupons', '%', 'Coupons', true),
-                        ('usage', '◌', 'Usage', true),
-                        ('audit-logs', '☷', 'Audit Logs', true),
-                        ('api-status', '⌁', 'API Status', true)
+                        ('billing', 'credit-card', 'Billing', true),
+                        ('plans', 'layers', 'Plans', true),
+                        ('subscriptions', 'zap', 'Subscriptions', true),
+                        ('payments', 'receipt', 'Payments', true),
+                        ('invoices', 'file-text', 'Invoices', true),
+                        ('refunds', 'rotate-ccw', 'Refunds', true),
+                        ('coupons', 'tag', 'Coupons', true),
+                        ('usage', 'activity', 'Usage', true),
+                        ('audit-logs', 'history', 'Audit Logs', true),
+                        ('api-status', 'cpu', 'API Status', true)
                     ] %}
 
                     {% for slug, icon, label, admin_only in system %}
                         <a href="/{{ slug }}" class="nav-item {% if page == slug %}active{% endif %}"
                             {% if admin_only %}data-admin-only="1"{% endif %}>
-                            <span>{{ icon }}</span>
-                            {{ label }}
+                            <i data-lucide="{{ icon }}"></i>
+                            <span>{{ label }}</span>
                         </a>
                     {% endfor %}
                 </div>
 
                 <p class="nav-label">Settings & Support</p>
                 <a href="/notifications" class="nav-item {% if page == 'notifications' %}active{% endif %}">
-                    <span>♢</span> Notifications
+                    <i data-lucide="bell"></i>
+                    <span>Notifications</span>
                 </a>
                 <a href="/settings" class="nav-item {% if page == 'settings' %}active{% endif %}">
-                    <span>⚙</span> Settings
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
                 </a>
                 <a href="/help" class="nav-item {% if page == 'help' %}active{% endif %}">
-                    <span>?</span> Help & Setup
+                    <i data-lucide="help-circle"></i>
+                    <span>Help & Setup</span>
                 </a>
             </nav>
 
             <div class="sidebar-user">
                 <div class="avatar" id="sidebarAvatar">SP</div>
-                <div>
-                    <strong id="sidebarName">User</strong>
-                    <small id="sidebarOrg">SmartAutoPost</small>
+                <div style="overflow: hidden;">
+                    <div id="sidebarName" style="font-weight:600; font-size: 0.85rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">User</div>
+                    <div id="sidebarOrg" style="font-size: 0.72rem; color: var(--text-faint); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">SmartAutoPost</div>
                 </div>
-                <button type="button" title="Logout" onclick="logout()">↪</button>
+                <button type="button" title="Logout" onclick="logout()">
+                    <i data-lucide="log-out" style="width:16px; height:16px;"></i>
+                </button>
             </div>
 
         </aside>
 
+        <div class="sidebar-backdrop" onclick="document.body.classList.remove('menu-open')"></div>
+
+        <!-- Main Workspace -->
         <main class="main">
             <header class="topbar">
-                <div>
-                    <button class="mobile-menu" type="button" onclick="document.body.classList.toggle('menu-open')">☰</button>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <button class="mobile-menu" type="button" aria-label="Toggle menu" onclick="document.body.classList.toggle('menu-open')">
+                        <i data-lucide="menu" style="width:20px; height:20px;"></i>
+                    </button>
                     <h1>{{ title }}</h1>
-                    <span class="badge">v1.0 MVP</span>
+                    <span class="badge-mvp">v1.0 MVP</span>
                 </div>
 
                 <div class="top-actions">
-                    <a href="/notifications" title="Notifications">♢</a>
-                    <a href="/profile" title="Profile">◉</a>
-                    <label data-admin-only="1">
-                        Organization:
+                    <a href="/notifications" title="Notifications">
+                        <i data-lucide="bell" style="width:17px; height:17px;"></i>
+                    </a>
+                    <a href="/profile" title="Profile">
+                        <i data-lucide="user" style="width:17px; height:17px;"></i>
+                    </a>
+                    <label data-admin-only="1" style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                        Org:
                         <select id="organizationSelect">
                             <option value="">Select</option>
                         </select>
@@ -165,9 +183,14 @@
 
     <div id="toast" class="toast"></div>
 
-    <script src="/static/js/api.js?v=103"></script>
-    <script src="/static/js/app.js?v=103"></script>
-    <script src="/static/js/modules.js?v=103"></script>
+    <script src="/static/js/api.js?v=105"></script>
+    <script src="/static/js/app.js?v=105"></script>
+    <script src="/static/js/modules.js?v=105"></script>
+
+    <script>
+        // Render Lucide icons on load
+        lucide.createIcons();
+    </script>
 
     {% block scripts %}
     {% endblock %}

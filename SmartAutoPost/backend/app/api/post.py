@@ -130,7 +130,7 @@ def search_real_instagram_users(
 
 
 # =========================================================
-# MULTI-ACCOUNT DISPATCH ENDPOINT (WITH INSTANT GMB ROUTING)
+# MULTI-ACCOUNT DISPATCH ENDPOINT (FAIL-PROOF MEDIA & SCHEDULING)
 # =========================================================
 @router.post("/create-multi")
 def create_multi_platform_posts(
@@ -147,8 +147,9 @@ def create_multi_platform_posts(
     created_posts = []
     errors = []
 
-    # Priority resolution for media
-    resolved_media_url = payload.image_url or payload.media_url
+    # 1. Bulletproof Media URL Resolution
+    resolved_media_url = payload.media_url or payload.image_url
+
     if not resolved_media_url and payload.media_ids:
         first_media = db.query(Media).filter(Media.id == payload.media_ids[0]).first()
         if first_media:
@@ -156,9 +157,10 @@ def create_multi_platform_posts(
                 getattr(first_media, "file_url", None)
                 or getattr(first_media, "url", None)
                 or getattr(first_media, "file_path", None)
+                or getattr(first_media, "path", None)
             )
 
-    # Robust ISO Datetime Parsing
+    # 2. ISO / UTC Datetime Parsing
     parsed_scheduled_at = None
     if payload.scheduled_at:
         try:
@@ -191,7 +193,7 @@ def create_multi_platform_posts(
                 request=request,
             )
 
-            # Direct sync with database record
+            # 3. Direct DB Row Sync: media_url aur scheduled status har haal me set ho
             if hasattr(created_post, "id"):
                 db_post = db.query(Post).filter(Post.id == created_post.id).first()
                 if db_post:
@@ -203,7 +205,7 @@ def create_multi_platform_posts(
                     db.commit()
                     db.refresh(db_post)
 
-            # Instant Publishing (Only when scheduled_at is NOT provided)
+            # 4. Instant Publishing (Only for non-scheduled posts)
             if not is_scheduled:
                 try:
                     published_post = post_service.publish_post(

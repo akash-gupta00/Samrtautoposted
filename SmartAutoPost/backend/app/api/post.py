@@ -46,7 +46,8 @@ class MultiPostCreate(BaseModel):
     media_url: Optional[str] = None
     image_url: Optional[str] = None
     media_ids: Optional[List[int]] = []
-    scheduled_at: Optional[str] = None
+    scheduled_at: Optional[Any] = None
+    status: Optional[str] = None
 
 
 # =========================================================
@@ -146,7 +147,7 @@ def create_multi_platform_posts(
     created_posts = []
     errors = []
 
-    # Priority resolution for media: direct image_url (AI) > payload.media_url > media_ids DB query
+    # Priority resolution for media
     resolved_media_url = payload.image_url or payload.media_url
     if not resolved_media_url and payload.media_ids:
         first_media = db.query(Media).filter(Media.id == payload.media_ids[0]).first()
@@ -157,6 +158,21 @@ def create_multi_platform_posts(
                 or getattr(first_media, "file_path", None)
             )
 
+    # Robust ISO Datetime Parsing
+    parsed_scheduled_at = None
+    if payload.scheduled_at:
+        try:
+            if isinstance(payload.scheduled_at, datetime):
+                parsed_scheduled_at = payload.scheduled_at
+            else:
+                raw_time = str(payload.scheduled_at).replace("Z", "+00:00")
+                parsed_scheduled_at = datetime.fromisoformat(raw_time)
+        except Exception as dt_err:
+            logger.error(f"[Time Parse Error]: {dt_err}")
+            parsed_scheduled_at = None
+
+    is_scheduled = bool(parsed_scheduled_at)
+
     for acc_id in target_account_ids:
         try:
             single_post_data = PostCreate(
@@ -165,7 +181,7 @@ def create_multi_platform_posts(
                 title=payload.title,
                 caption=payload.caption,
                 media_url=resolved_media_url,
-                scheduled_at=datetime.fromisoformat(payload.scheduled_at.replace("Z", "+00:00")) if payload.scheduled_at else None
+                scheduled_at=parsed_scheduled_at
             )
 
             created_post = post_service.create_post(
@@ -175,13 +191,20 @@ def create_multi_platform_posts(
                 request=request,
             )
 
-            if resolved_media_url and hasattr(created_post, "media_url"):
-                created_post.media_url = resolved_media_url
-                db.commit()
-                db.refresh(created_post)
+            # Direct sync with database record
+            if hasattr(created_post, "id"):
+                db_post = db.query(Post).filter(Post.id == created_post.id).first()
+                if db_post:
+                    if resolved_media_url:
+                        db_post.media_url = resolved_media_url
+                    if parsed_scheduled_at:
+                        db_post.scheduled_at = parsed_scheduled_at
+                        db_post.status = "scheduled"
+                    db.commit()
+                    db.refresh(db_post)
 
-            # Instant Publishing to Platform (Google Business / Meta / LinkedIn)
-            if not payload.scheduled_at:
+            # Instant Publishing (Only when scheduled_at is NOT provided)
+            if not is_scheduled:
                 try:
                     published_post = post_service.publish_post(
                         db=db,
@@ -193,12 +216,9 @@ def create_multi_platform_posts(
                 except Exception as pub_err:
                     err_text = str(pub_err)
                     logger.error(f"[Publish Error for Acc {acc_id}]: {err_text}")
-                    
                     if "has not been used in project" in err_text or "is disabled" in err_text:
                         err_text = "Google Business API is currently pending Google review for this project."
-
                     errors.append({"account_id": acc_id, "error": err_text})
-                    # Post is saved in DB, so record the created ID even if instant publish errors out
                     created_posts.append(created_post.id)
             else:
                 created_posts.append(created_post.id)

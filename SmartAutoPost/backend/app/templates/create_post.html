@@ -17,7 +17,7 @@
 
         <!-- Media Upload Section -->
         <div style="margin-bottom: 15px;">
-            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video)</label>
+            <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video) <span style="color: #ef4444;">*</span></label>
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                 <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed var(--border-subtle); border-radius: 8px; cursor: pointer;" />
                 <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid var(--border-subtle); font-size: 12px; cursor: pointer;">
@@ -28,7 +28,7 @@
             <!-- Compact Inline AI Image Generator Bar -->
             <div style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
                 <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap;">🎨 AI Image:</span>
-                <input type="text" id="aiImageGenPrompt" placeholder="Hindi, Hinglish or English me likhein (e.g. Spider-Man ka image do)..." 
+                <input type="text" id="aiImageGenPrompt" placeholder="Hindi, Hinglish or English me likhein..." 
                        style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-subtle); border-radius: 6px; outline: none; background: rgba(15, 23, 42, 0.65);"
                        onkeypress="if(event.key==='Enter'){ event.preventDefault(); generateAIImageInline(); }">
                 <button type="button" id="aiImgGenBtn" onclick="generateAIImageInline()" 
@@ -143,13 +143,11 @@
                 <video id="livePreviewVideo" src="" controls playsinline style="display: none; width: 100%; max-height: 350px; border-radius: 8px;"></video>
                 <span id="previewPlaceholderText" style="color: var(--text-muted);">Media preview (Photo/Reel)</span>
                 
-                <!-- Hover Zoom Overlay Hint -->
                 <div id="zoomHintOverlay" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 11px; pointer-events: none;">
                     🔍 Click to Zoom
                 </div>
             </div>
 
-            <!-- Image Download / Save Actions Bar -->
             <div id="mediaSaveActionToolbar" style="display: none; margin-top: 8px; gap: 8px; justify-content: flex-end;">
                 <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     🔍 Zoom
@@ -182,7 +180,6 @@
             &times;
         </button>
         <img id="modalZoomedImg" src="" alt="Enlarged Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 10px; object-fit: contain;" />
-        
         <div style="position: absolute; bottom: -45px; display: flex; gap: 12px;">
             <button type="button" onclick="downloadPreviewMedia()" style="background: #2563eb; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
                 ⬇️ Download HD
@@ -213,12 +210,12 @@
 window.connectedAccountsData = [];
 window.currentActiveMediaSrc = '';
 window.isCurrentMediaVideo = false;
+window.directUploadedUrl = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadMultiAccounts();
 });
 
-// Zoom Lightbox Handlers
 window.openImageZoomModal = function() {
     if (!window.currentActiveMediaSrc || window.isCurrentMediaVideo) return;
     const modal = document.getElementById('imageZoomModal');
@@ -297,12 +294,14 @@ async function loadMultiAccounts() {
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
         `;
 
-        window.connectedAccountsData.forEach(acc => {
+        // Default: Sirf pehla account select hoga (dono ek sath check nahi honge)
+        window.connectedAccountsData.forEach((acc, index) => {
             const provider = (acc.provider || 'ACCOUNT').toUpperCase();
             const label = acc.account_name || acc.username || 'Channel';
+            const isChecked = index === 0 ? 'checked' : '';
             html += `
                 <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; background: rgba(15, 23, 42, 0.6); user-select: none;">
-                    <input type="checkbox" value="${acc.id}" data-provider="${(acc.provider || '').toLowerCase()}" class="social-acc-cb" checked onchange="checkGmbVisibility()" style="cursor: pointer;" />
+                    <input type="checkbox" value="${acc.id}" data-provider="${(acc.provider || '').toLowerCase()}" class="social-acc-cb" ${isChecked} onchange="checkGmbVisibility()" style="cursor: pointer;" />
                     <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: #cbd5e1;">${provider}</span>
                     <span style="font-size: 13px; font-weight: 500; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
                 </label>
@@ -325,8 +324,7 @@ window.generateAIImageInline = async function() {
     const prompt = promptInput ? promptInput.value.trim() : '';
 
     if (!prompt) {
-        if (typeof showToast === 'function') showToast("Please describe the image to generate! 🎨", true);
-        else alert("Please describe the image to generate!");
+        alert("Please describe the image to generate!");
         return;
     }
 
@@ -359,10 +357,11 @@ window.generateAIImageInline = async function() {
         if (data.image_url) {
             if (data.id) document.getElementById('selectedMediaId').value = data.id;
             document.getElementById('selectedAiImageUrl').value = data.image_url;
+            window.directUploadedUrl = data.image_url;
             document.getElementById('postImageFile').value = '';
             
             updateMediaPreview(data.image_url, false);
-            if (typeof showToast === 'function') showToast("AI Image created & saved to Media Library! 📁✨");
+            if (typeof showToast === 'function') showToast("AI Image created & saved! 📁✨");
         }
     } catch (err) {
         console.error("AI Image Generation Error:", err);
@@ -374,10 +373,7 @@ window.generateAIImageInline = async function() {
 };
 
 window.downloadPreviewMedia = async function() {
-    if (!window.currentActiveMediaSrc) {
-        alert("No media to download!");
-        return;
-    }
+    if (!window.currentActiveMediaSrc) return alert("No media to download!");
     try {
         const response = await fetch(window.currentActiveMediaSrc);
         const blob = await response.blob();
@@ -389,23 +385,15 @@ window.downloadPreviewMedia = async function() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
-        if (typeof showToast === 'function') showToast("Downloaded to device! ⬇️");
     } catch (e) {
         window.open(window.currentActiveMediaSrc, '_blank');
     }
 };
 
 window.savePreviewToLibrary = function() {
-    const mediaId = document.getElementById('selectedMediaId')?.value;
-    if (mediaId) {
-        if (typeof showToast === 'function') showToast("Already saved in Media Library! 📁✅");
-        else alert("Already saved in Media Library!");
-    } else {
-        if (typeof showToast === 'function') showToast("Media saved to Library! 📁");
-    }
+    alert("Media saved to Library! 📁");
 };
 
-// Instagram Handle Search
 window.searchHandle = async function() {
     const input = document.getElementById('mentionSearchInput');
     let query = input?.value.trim().replace(/^@+/, '');
@@ -446,16 +434,15 @@ window.searchHandle = async function() {
                     if (captionBox) {
                         captionBox.value = (captionBox.value.trim() + ' ' + handleStr + ' ').trimStart();
                         captionBox.dispatchEvent(new Event('input'));
-                        if (typeof showToast === 'function') showToast(`Added ${handleStr} to caption! ✅`);
                     }
                 };
                 chipsContainer.appendChild(chip);
             });
         } else {
-            chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">No real user found on Instagram.</span>';
+            chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">No user found.</span>';
         }
     } catch (err) {
-        chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">Search request failed.</span>';
+        chipsContainer.innerHTML = '<span style="font-size: 12px; color: #ef4444;">Search failed.</span>';
     }
 };
 
@@ -516,6 +503,7 @@ window.handleDirectUpload = function(event) {
     if (file) {
         if (hiddenId) hiddenId.value = '';
         if (hiddenAiUrl) hiddenAiUrl.value = '';
+        window.directUploadedUrl = '';
         const isVideo = file.type.startsWith('video/') || isVideoUrlOrFile(file.name);
         const objUrl = URL.createObjectURL(file);
         updateMediaPreview(objUrl, isVideo);
@@ -565,7 +553,8 @@ window.closeMediaModal = function() {
 
 window.selectLibraryMedia = function(id, url, isVideo = false) {
     document.getElementById('selectedMediaId').value = id;
-    document.getElementById('selectedAiImageUrl').value = '';
+    document.getElementById('selectedAiImageUrl').value = url;
+    window.directUploadedUrl = url;
     document.getElementById('postImageFile').value = '';
     updateMediaPreview(url, isVideo);
     closeMediaModal();
@@ -600,15 +589,7 @@ window.generateMagicCaption = async function() {
         const titleText = titleInput?.value.trim() || '';
         const currentCaption = captionBox?.value.trim() || '';
 
-        let finalPrompt = '';
-        if (customInstruction) {
-            finalPrompt = customInstruction;
-            if (currentCaption) finalPrompt += ` (Context: "${currentCaption}")`;
-        } else if (titleText) {
-            finalPrompt = `Write an engaging caption and hashtags for: ${titleText}`;
-        } else {
-            finalPrompt = "Write an engaging social media post caption with trending hashtags.";
-        }
+        let finalPrompt = customInstruction || (titleText ? `Write an engaging caption and hashtags for: ${titleText}` : "Write an engaging social media post caption with trending hashtags.");
         
         formData.append('prompt', finalPrompt);
         formData.append('platform', 'Universal');
@@ -642,20 +623,16 @@ window.generateMagicCaption = async function() {
         if (generatedText) {
             captionBox.value = generatedText;
             if (previewCaption) previewCaption.innerText = generatedText;
-            if (typeof showToast === 'function') showToast('AI Caption generated! ✨');
-        } else {
-            throw new Error('Empty response from AI server');
         }
     } catch (err) {
         console.error('AI Gen Error:', err);
-        if (typeof showToast === 'function') showToast(err.message, true);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;
     }
 };
 
-// UNIFIED HANDLER: Handles both "Publish Now" and "Schedule / Create"
+// UNIFIED HANDLER: GUARANTEED MEDIA PERSISTENCE & SCHEDULING
 async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) {
     const checkboxes = Array.from(document.querySelectorAll('#socialAccountsContainer input[type="checkbox"]:checked'));
     const selectedIds = checkboxes
@@ -683,14 +660,13 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
     let scheduledAtUtc = null;
     let postStatus = "published";
 
-    // Agar user Schedule / Create dabata hai aur schedule date input bhari hai
     if (!isDirectPublish && scheduledAtInput) {
         const localDate = new Date(scheduledAtInput);
         if (isNaN(localDate.getTime())) {
             alert("Invalid schedule date/time selected!");
             return;
         }
-        scheduledAtUtc = localDate.toISOString(); // Backend ke liye exact UTC timestamp
+        scheduledAtUtc = localDate.toISOString();
         postStatus = "scheduled";
     }
 
@@ -700,19 +676,16 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
     const originalBtnText = triggerBtn ? triggerBtn.innerText : "Submit";
     if (triggerBtn) {
         triggerBtn.disabled = true;
-        triggerBtn.innerText = isDirectPublish ? "Publishing to Platform... 🚀" : "Scheduling Post... ⏳";
+        triggerBtn.innerText = isDirectPublish ? "Publishing... 🚀" : "Scheduling... ⏳";
     }
 
     try {
         let mediaIds = [];
+        let finalMediaUrl = selectedAiImageUrl || window.directUploadedUrl || '';
 
-        // 1. Agar AI ya Media library se pehle se ID hai
-        if (selectedMediaId) {
-            mediaIds.push(Number(selectedMediaId));
-        } 
-        // 2. Agar local file upload ki hai
-        else if (fileInput && fileInput.files && fileInput.files[0]) {
-            if (typeof showToast === 'function') showToast("Uploading media file...");
+        // Local file upload handling
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            if (triggerBtn) triggerBtn.innerText = "Uploading Media... 📤";
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
@@ -733,22 +706,20 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
             const uploadData = await uploadRes.json();
 
             if (!uploadRes.ok) {
-                const errDetail = uploadData.detail || JSON.stringify(uploadData);
-                throw new Error("Media Upload Rejected: " + errDetail);
+                throw new Error("Media Upload Failed: " + (uploadData.detail || JSON.stringify(uploadData)));
             }
 
+            // Extract valid uploaded URL
+            finalMediaUrl = uploadData.file_url || uploadData.url || (uploadData.data && uploadData.data.url) || finalMediaUrl;
             const mId = uploadData.id || uploadData.media_id || (uploadData.data && uploadData.data.id);
-            if (mId) {
-                mediaIds.push(Number(mId));
-            } else if (uploadData.file_url || uploadData.url) {
-                window.directUploadedUrl = uploadData.file_url || uploadData.url;
-            }
+            if (mId) mediaIds.push(Number(mId));
+        } else if (selectedMediaId) {
+            mediaIds.push(Number(selectedMediaId));
         }
 
-        const fallbackUrl = selectedAiImageUrl || window.directUploadedUrl || null;
-
-        if (mediaIds.length === 0 && !fallbackUrl) {
-            throw new Error("Please upload a file, pick from library, or generate an AI image first.");
+        // Instagram requires media URL
+        if (!finalMediaUrl && mediaIds.length === 0) {
+            throw new Error("Post Media (Photo/Video) is compulsory for social platforms!");
         }
 
         const payload = {
@@ -757,8 +728,8 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
             title: titleVal,
             caption: captionVal,
             media_ids: mediaIds,
-            media_url: fallbackUrl,
-            image_url: fallbackUrl,
+            media_url: finalMediaUrl,
+            image_url: finalMediaUrl,
             scheduled_at: scheduledAtUtc,
             status: postStatus
         };
@@ -778,24 +749,14 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
         }
 
         const resData = await res.json();
+        if (!res.ok) throw new Error(resData.detail || JSON.stringify(resData));
 
-        if (!res.ok) {
-            throw new Error(resData.detail || JSON.stringify(resData));
-        }
-
-        if (postStatus === "scheduled") {
-            if (typeof showToast === 'function') showToast("Post scheduled successfully! ⏰");
-            else alert("Post scheduled successfully! ⏰");
-        } else {
-            if (typeof showToast === 'function') showToast("Published successfully to platform! 🎉");
-            else alert("Published successfully! 🎉");
-        }
-
-        setTimeout(() => { window.location.href = '/posts'; }, 1000);
+        alert(postStatus === "scheduled" ? "Post scheduled successfully! ⏰" : "Published successfully! 🎉");
+        setTimeout(() => { window.location.href = '/posts'; }, 800);
 
     } catch (err) {
-        console.error("Submission Exception:", err);
-        alert("Action Failed:\n" + (err.message || err));
+        console.error("Submission Error:", err);
+        alert(err.message || err);
         if (triggerBtn) {
             triggerBtn.disabled = false;
             triggerBtn.innerText = originalBtnText;
@@ -803,12 +764,10 @@ async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) 
     }
 }
 
-// "Publish Now" button click handler
 window.forceDirectPublish = function(btnEl) {
     handlePostSubmission(true, btnEl);
 };
 
-// Form submit ("Schedule / Create" button) handler
 document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');

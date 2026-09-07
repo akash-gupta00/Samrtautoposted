@@ -76,27 +76,104 @@
 
 <!-- Active Connected Accounts Display -->
 <h3 style="margin-bottom: 14px;">Active Channels</h3>
-<div id="accountsGrid" class="account-grid"></div>
+<div id="accountsGrid" class="account-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+    <p class="muted">Loading connected accounts...</p>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+    loadActiveAccounts();
+});
+
+function getOrgId() {
+    return typeof orgId === 'function' ? orgId() : (localStorage.getItem('organization_id') || 1);
+}
+
 function connectOAuth(platform) {
-    const org = typeof orgId === 'function' ? orgId() : localStorage.getItem('organization_id');
+    const org = getOrgId();
     if (!org) {
-        showToast('Please create or select an organization first', true);
+        if (typeof showToast === 'function') showToast('Please select an organization first', true);
+        else alert('Please select an organization first');
         return;
     }
 
-    // Direct redirection to official OAuth dialogs
-    if (platform === 'google') {
-        window.location.href = `/api/v1/auth/google/login?organization_id=${org}`;
-    } else if (platform === 'facebook') {
-        window.location.href = `/api/v1/auth/facebook/login`;
-    } else if (platform === 'instagram') {
-        window.location.href = `/api/v1/auth/instagram/login`;
-    } else if (platform === 'linkedin') {
-        window.location.href = `/api/v1/auth/linkedin/login`;
+    // Har platform ke sath organization_id query parameter bhejna zaroori hai
+    window.location.href = `/api/v1/auth/${platform}/login?organization_id=${org}`;
+}
+
+async function loadActiveAccounts() {
+    const grid = document.getElementById('accountsGrid');
+    if (!grid) return;
+
+    const org = getOrgId();
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    try {
+        let res = await fetch(`/api/v1/social-accounts/?organization_id=${org}`, { headers });
+        if (!res.ok) {
+            res = await fetch(`/social-accounts/?organization_id=${org}`, { headers });
+        }
+        const data = await res.json();
+        const accounts = Array.isArray(data) ? data : (data.items || []);
+
+        if (accounts.length === 0) {
+            grid.innerHTML = '<p class="muted">No social accounts connected yet.</p>';
+            return;
+        }
+
+        grid.innerHTML = accounts.map(acc => {
+            const provider = (acc.provider || 'Channel').toUpperCase();
+            const name = acc.account_name || acc.username || 'Connected Profile';
+            return `
+                <div class="card" style="padding: 16px; border-radius: 10px; border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #818cf8;">${provider}</span>
+                        <h4 style="margin: 6px 0 0 0; font-size: 14px;">${name}</h4>
+                        <small class="muted" style="font-size: 11px;">ID: ${acc.id}</small>
+                    </div>
+                    <button type="button" class="btn small ghost" onclick="disconnectAccount(${acc.id})" style="color: #ef4444; border-color: rgba(239,68,68,0.3); font-size: 12px; cursor: pointer;">
+                        Disconnect
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        grid.innerHTML = `<p style="color: #ef4444; font-size: 13px;">Error loading channels: ${err.message}</p>`;
+    }
+}
+
+async function disconnectAccount(accountId) {
+    if (!confirm('Are you sure you want to disconnect this account?')) return;
+
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    try {
+        let res = await fetch(`/api/v1/social-accounts/${accountId}`, {
+            method: 'DELETE',
+            headers: headers
+        });
+
+        if (!res.ok) {
+            res = await fetch(`/social-accounts/${accountId}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+        }
+
+        if (res.ok) {
+            if (typeof showToast === 'function') showToast('Account disconnected! ✅');
+            loadActiveAccounts();
+        } else {
+            const err = await res.json();
+            alert('Failed to disconnect: ' + (err.detail || 'Server error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 }
 </script>

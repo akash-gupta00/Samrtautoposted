@@ -1,8 +1,9 @@
 import os
 import logging
 import requests
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 # Database session dependency
@@ -24,6 +25,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/social-accounts", tags=["Social Accounts"])
 
 
+# --- Schemas ---
+class SocialAccountCreate(BaseModel):
+    organization_id: int
+    provider: str
+    account_name: str
+    access_token: str
+    refresh_token: Optional[str] = None
+    page_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# --- Endpoints ---
 @router.get("/")
 def get_connected_accounts(
     organization_id: Optional[int] = Query(None),
@@ -35,6 +48,87 @@ def get_connected_accounts(
     return query.all()
 
 
+@router.post("/", status_code=status.HTTP_201_CREATED)
+def connect_social_account(
+    payload: SocialAccountCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Connect or Update (Upsert) Social Account:
+    Prevents duplicate entries and replaces expired tokens.
+    """
+    provider_clean = (payload.provider or "").lower().strip()
+
+    # Pehle check karein ki same organization, platform aur account_name pehle se maujood hai ya nahi
+    existing = db.query(SocialAccount).filter(
+        SocialAccount.organization_id == payload.organization_id,
+        SocialAccount.provider == provider_clean,
+        SocialAccount.account_name == payload.account_name
+    ).first()
+
+    if existing:
+        # Purane account ka token naye working token se update karein
+        existing.access_token = payload.access_token
+        if payload.refresh_token:
+            existing.refresh_token = payload.refresh_token
+        if payload.page_id:
+            existing.page_id = payload.page_id
+        if hasattr(existing, 'metadata') and payload.metadata:
+            existing.metadata = payload.metadata
+        if hasattr(existing, 'is_active'):
+            existing.is_active = True
+
+        db.commit()
+        db.refresh(existing)
+        logger.info(f"Refreshed token for existing {provider_clean} account: {existing.id}")
+        return {
+            "success": True,
+            "message": f"{provider_clean.capitalize()} account updated successfully",
+            "id": existing.id
+        }
+
+    # Naya account record create karein
+    new_acc = SocialAccount(
+        organization_id=payload.organization_id,
+        provider=provider_clean,
+        platform=provider_clean,
+        account_name=payload.account_name,
+        access_token=payload.access_token,
+        refresh_token=payload.refresh_token,
+        page_id=payload.page_id or "default"
+    )
+
+    if hasattr(new_acc, 'is_active'):
+        new_acc.is_active = True
+    if hasattr(new_acc, 'metadata') and payload.metadata:
+        new_acc.metadata = payload.metadata
+
+    db.add(new_acc)
+    db.commit()
+    db.refresh(new_acc)
+    logger.info(f"Connected new {provider_clean} account: {new_acc.id}")
+    return {
+        "success": True,
+        "message": f"{provider_clean.capitalize()} account connected successfully",
+        "id": new_acc.id
+    }
+
+
+@router.delete("/{account_id}")
+def delete_social_account(
+    account_id: int,
+    db: Session = Depends(get_db)
+):
+    acc = db.query(SocialAccount).filter(SocialAccount.id == account_id).first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Social account not found")
+
+    db.delete(acc)
+    db.commit()
+    return {"success": True, "message": "Account disconnected"}
+
+
+# --- Google OAuth Callback ---
 @router.get("/google/callback")
 def google_oauth_callback(
     code: str,
@@ -126,7 +220,8 @@ def google_oauth_callback(
                 if refresh_token:
                     existing.refresh_token = refresh_token
                 existing.account_name = loc_title
-                existing.is_active = True
+                if hasattr(existing, 'is_active'):
+                    existing.is_active = True
             else:
                 new_acc = SocialAccount(
                     organization_id=organization_id,
@@ -135,9 +230,10 @@ def google_oauth_callback(
                     account_name=loc_title,
                     page_id=full_identifier,
                     access_token=access_token,
-                    refresh_token=refresh_token,
-                    is_active=True
+                    refresh_token=refresh_token
                 )
+                if hasattr(new_acc, 'is_active'):
+                    new_acc.is_active = True
                 db.add(new_acc)
 
             connected_locations.append(loc_title)
@@ -152,7 +248,8 @@ def google_oauth_callback(
             existing_generic.access_token = access_token
             if refresh_token:
                 existing_generic.refresh_token = refresh_token
-            existing_generic.is_active = True
+            if hasattr(existing_generic, 'is_active'):
+                existing_generic.is_active = True
         else:
             fallback_acc = SocialAccount(
                 organization_id=organization_id,
@@ -161,9 +258,10 @@ def google_oauth_callback(
                 account_name="Google Business Profile",
                 page_id="default",
                 access_token=access_token,
-                refresh_token=refresh_token,
-                is_active=True
+                refresh_token=refresh_token
             )
+            if hasattr(fallback_acc, 'is_active'):
+                fallback_acc.is_active = True
             db.add(fallback_acc)
         connected_locations.append("Google Business Account")
 

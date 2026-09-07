@@ -58,6 +58,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadPostsList();
 });
 
+function formatScheduleDateTime(rawTimestamp) {
+    if (!rawTimestamp) return '—';
+
+    // Ensure UTC recognition agar backend se Z na aaye
+    const utcString = (rawTimestamp.endsWith('Z') || rawTimestamp.includes('+')) 
+        ? rawTimestamp 
+        : rawTimestamp + 'Z';
+
+    const d = new Date(utcString);
+    if (isNaN(d.getTime())) return rawTimestamp;
+
+    // Convert exact to user's local timezone (IST) in clean 12h format
+    return d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+}
+
 async function loadPostsList() {
     const tbody = document.getElementById('postsTableBody');
     if (!tbody) return;
@@ -117,7 +139,7 @@ function renderPostsTable() {
             statusBadge = '<span style="background: var(--bg-hover); color: var(--text-secondary); padding: 3px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px;">draft</span>';
         }
 
-        const scheduledTime = post.scheduled_at ? new Date(post.scheduled_at).toLocaleString() : '—';
+        const scheduledTime = formatScheduleDateTime(post.scheduled_at);
 
         let actionButtons = `
             <button class="btn small" style="background: #2563eb; color: #fff; border: none; font-size: 11px; padding: 4px 8px; cursor: pointer; border-radius: 4px;" onclick="publishPostDirectly(${post.id}, this)">Publish</button>

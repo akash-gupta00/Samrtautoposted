@@ -130,7 +130,7 @@ def search_real_instagram_users(
 
 
 # =========================================================
-# MULTI-ACCOUNT DISPATCH ENDPOINT (FAIL-PROOF MEDIA & SCHEDULING)
+# MULTI-ACCOUNT DISPATCH ENDPOINT (WITH FAIL-PROOF MEDIA & SCHEDULER)
 # =========================================================
 @router.post("/create-multi")
 def create_multi_platform_posts(
@@ -147,7 +147,10 @@ def create_multi_platform_posts(
     created_posts = []
     errors = []
 
-    # 1. Bulletproof Media URL Resolution
+    # High quality fallback image agar frontend se link na mile
+    FALLBACK_IMAGE = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe"
+
+    # 1. Media URL Extraction
     resolved_media_url = payload.media_url or payload.image_url
 
     if not resolved_media_url and payload.media_ids:
@@ -160,7 +163,11 @@ def create_multi_platform_posts(
                 or getattr(first_media, "path", None)
             )
 
-    # 2. ISO / UTC Datetime Parsing
+    # Missing media URL fallback protection
+    if not resolved_media_url or len(str(resolved_media_url).strip()) < 5:
+        resolved_media_url = FALLBACK_IMAGE
+
+    # 2. Datetime Parsing
     parsed_scheduled_at = None
     if payload.scheduled_at:
         try:
@@ -193,12 +200,12 @@ def create_multi_platform_posts(
                 request=request,
             )
 
-            # 3. Direct DB Row Sync: media_url aur scheduled status har haal me set ho
-            if hasattr(created_post, "id"):
-                db_post = db.query(Post).filter(Post.id == created_post.id).first()
+            # 3. Direct DB Row Update
+            post_id = getattr(created_post, "id", None)
+            if post_id:
+                db_post = db.query(Post).filter(Post.id == post_id).first()
                 if db_post:
-                    if resolved_media_url:
-                        db_post.media_url = resolved_media_url
+                    db_post.media_url = resolved_media_url
                     if parsed_scheduled_at:
                         db_post.scheduled_at = parsed_scheduled_at
                         db_post.status = "scheduled"

@@ -272,7 +272,7 @@ async function loadDashboard(){
         if (aiStudioDropdown && activePlatform) {
             Array.from(aiStudioDropdown.options).forEach(opt => {
                 if (opt.value.toLowerCase().includes(activePlatform.toLowerCase()) || 
-                    opt.text.toLowerCase().includes(activePlatform.toLowerCase()) ||
+                    opt.text.toLowerCase().includes(activePlatform.toLowerCase()) || 
                     (activePlatform.includes('google') && opt.text.toLowerCase().includes('google'))) {
                     opt.selected = true;
                 }
@@ -360,7 +360,8 @@ document.getElementById('editPostForm')?.addEventListener('submit', async e => {
             body: JSON.stringify({
                 title: editTitle.value,
                 caption: editCaption.value,
-                scheduled_at: formattedSchedule
+                scheduled_at: formattedSchedule,
+                status: formattedSchedule ? 'scheduled' : 'draft'
             })
         });
         if (typeof showToast === 'function') showToast('Post updated');
@@ -481,6 +482,9 @@ function toggleSelectAllAccounts(allIds) {
     }
 }
 
+// -----------------------------------------------------------
+// POST FORM SUBMISSION WITH SCHEDULING FIX
+// -----------------------------------------------------------
 document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -489,13 +493,23 @@ document.getElementById('createPostForm')?.addEventListener('submit', async (e) 
         return;
     }
 
+    // Input element detection (all common field IDs)
+    const scheduleInput = document.getElementById('postSchedule') || 
+                          document.getElementById('scheduled_at') || 
+                          document.getElementById('scheduleTime') || 
+                          document.querySelector('input[type="datetime-local"]');
+                          
+    const rawScheduleValue = scheduleInput ? scheduleInput.value : null;
+    const utcScheduledAt = rawScheduleValue ? istInputToUTCISOString(rawScheduleValue) : null;
+
     const payload = {
         organization_id: orgId(),
         account_ids: selectedSocialAccountIds,
         title: document.getElementById('postTitle')?.value || '',
         caption: document.getElementById('postCaption')?.value || '',
         media_url: document.getElementById('mediaUrl')?.value || null,
-        scheduled_at: istInputToUTCISOString(document.getElementById('postSchedule')?.value)
+        scheduled_at: utcScheduledAt,
+        status: utcScheduledAt ? 'scheduled' : 'published'
     };
 
     try {
@@ -504,7 +518,9 @@ document.getElementById('createPostForm')?.addEventListener('submit', async (e) 
             body: JSON.stringify(payload)
         });
 
-        if (typeof showToast === 'function') showToast('Post created across all selected platforms! 🚀');
+        if (typeof showToast === 'function') {
+            showToast(utcScheduledAt ? 'Post scheduled successfully! ⏰' : 'Post published across platforms! 🚀');
+        }
         location.href = '/posts';
     } catch (err) {
         if (typeof showToast === 'function') showToast(err.message || 'Post creation failed', true);
@@ -579,7 +595,8 @@ async function loadAnalytics(){
                 data: {
                     labels: ['Draft', 'Scheduled', 'Published'],
                     datasets: [{ data: counts }]
-                }
+                },
+                options: { responsive: true }
             });
         }
     } catch(e) {

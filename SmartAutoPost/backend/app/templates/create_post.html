@@ -405,136 +405,6 @@ window.savePreviewToLibrary = function() {
     }
 };
 
-// DIRECT FAIL-PROOF PUBLISHER
-async function forceDirectPublish(btnEl) {
-    const checkboxes = Array.from(document.querySelectorAll('#socialAccountsContainer input[type="checkbox"]:checked'));
-    const selectedIds = checkboxes
-        .map(cb => parseInt(cb.value, 10))
-        .filter(val => !isNaN(val) && val > 0);
-
-    if (selectedIds.length === 0) {
-        alert("Please select at least one social account!");
-        return;
-    }
-
-    let orgIdVal = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
-    if (!orgIdVal) {
-        alert("Organization not selected!");
-        return;
-    }
-
-    const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
-    const captionVal = document.getElementById('postCaption')?.value.trim() || '';
-    const fileInput = document.getElementById('postImageFile');
-    const selectedMediaId = document.getElementById('selectedMediaId')?.value;
-    const selectedAiImageUrl = document.getElementById('selectedAiImageUrl')?.value;
-
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-    const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-    const originalBtnText = btnEl ? btnEl.innerText : "Publish Now 🚀";
-    if (btnEl) {
-        btnEl.disabled = true;
-        btnEl.innerText = "Publishing to Platform... 🚀";
-    }
-
-    try {
-        let mediaIds = [];
-
-        // 1. Agar AI ya Media library se pehle se ID hai
-        if (selectedMediaId) {
-            mediaIds.push(Number(selectedMediaId));
-        } 
-        // 2. Agar local file upload ki hai
-        else if (fileInput && fileInput.files && fileInput.files[0]) {
-            if (typeof showToast === 'function') showToast("Uploading media file...");
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-
-            // Query parameter hata kar safe direct post:
-            let uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgIdVal}`, {
-                method: 'POST',
-                headers: authHeader,
-                body: formData
-            });
-
-            if (uploadRes.status === 404) {
-                uploadRes = await fetch(`/media/upload?organization_id=${orgIdVal}`, {
-                    method: 'POST',
-                    headers: authHeader,
-                    body: formData
-                });
-            }
-
-            const uploadData = await uploadRes.json();
-
-            if (!uploadRes.ok) {
-                const errDetail = uploadData.detail || JSON.stringify(uploadData);
-                throw new Error("Media Upload Rejected (400): " + errDetail);
-            }
-
-            const mId = uploadData.id || uploadData.media_id || (uploadData.data && uploadData.data.id);
-            if (mId) {
-                mediaIds.push(Number(mId));
-            } else if (uploadData.file_url || uploadData.url) {
-                window.directUploadedUrl = uploadData.file_url || uploadData.url;
-            }
-        }
-
-        const fallbackUrl = selectedAiImageUrl || window.directUploadedUrl || null;
-
-        if (mediaIds.length === 0 && !fallbackUrl) {
-            throw new Error("Please upload a file, pick from library, or generate an AI image first.");
-        }
-
-        const payload = {
-            organization_id: Number(orgIdVal),
-            account_ids: selectedIds,
-            title: titleVal,
-            caption: captionVal,
-            media_ids: mediaIds,
-            image_url: fallbackUrl,
-            scheduled_at: null
-        };
-
-        let res = await fetch('/api/v1/posts/create-multi', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeader },
-            body: JSON.stringify(payload)
-        });
-
-        if (res.status === 404) {
-            res = await fetch('/posts/create-multi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeader },
-                body: JSON.stringify(payload)
-            });
-        }
-
-        const resData = await res.json();
-
-        if (!res.ok) {
-            throw new Error(resData.detail || JSON.stringify(resData));
-        }
-
-        if (typeof showToast === 'function') {
-            showToast("Published successfully to platform! 🎉");
-        } else {
-            alert("Published successfully! 🎉");
-        }
-
-        setTimeout(() => { window.location.href = '/posts'; }, 1000);
-
-    } catch (err) {
-        console.error("Publish Exception:", err);
-        alert("Publishing Error:\n" + (err.message || err));
-        if (btnEl) {
-            btnEl.disabled = false;
-            btnEl.innerText = originalBtnText;
-        }
-    }
-}
-
 // Instagram Handle Search
 window.searchHandle = async function() {
     const input = document.getElementById('mentionSearchInput');
@@ -785,10 +655,164 @@ window.generateMagicCaption = async function() {
     }
 };
 
+// UNIFIED HANDLER: Handles both "Publish Now" and "Schedule / Create"
+async function handlePostSubmission(isDirectPublish = false, triggerBtn = null) {
+    const checkboxes = Array.from(document.querySelectorAll('#socialAccountsContainer input[type="checkbox"]:checked'));
+    const selectedIds = checkboxes
+        .map(cb => parseInt(cb.value, 10))
+        .filter(val => !isNaN(val) && val > 0);
+
+    if (selectedIds.length === 0) {
+        alert("Please select at least one social account!");
+        return;
+    }
+
+    let orgIdVal = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+    if (!orgIdVal) {
+        alert("Organization not selected!");
+        return;
+    }
+
+    const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
+    const captionVal = document.getElementById('postCaption')?.value.trim() || '';
+    const fileInput = document.getElementById('postImageFile');
+    const selectedMediaId = document.getElementById('selectedMediaId')?.value;
+    const selectedAiImageUrl = document.getElementById('selectedAiImageUrl')?.value;
+    const scheduledAtInput = document.getElementById('scheduledAt')?.value;
+
+    let scheduledAtUtc = null;
+    let postStatus = "published";
+
+    // Agar user Schedule / Create dabata hai aur schedule date input bhari hai
+    if (!isDirectPublish && scheduledAtInput) {
+        const localDate = new Date(scheduledAtInput);
+        if (isNaN(localDate.getTime())) {
+            alert("Invalid schedule date/time selected!");
+            return;
+        }
+        scheduledAtUtc = localDate.toISOString(); // Backend ke liye exact UTC timestamp
+        postStatus = "scheduled";
+    }
+
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    const originalBtnText = triggerBtn ? triggerBtn.innerText : "Submit";
+    if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.innerText = isDirectPublish ? "Publishing to Platform... 🚀" : "Scheduling Post... ⏳";
+    }
+
+    try {
+        let mediaIds = [];
+
+        // 1. Agar AI ya Media library se pehle se ID hai
+        if (selectedMediaId) {
+            mediaIds.push(Number(selectedMediaId));
+        } 
+        // 2. Agar local file upload ki hai
+        else if (fileInput && fileInput.files && fileInput.files[0]) {
+            if (typeof showToast === 'function') showToast("Uploading media file...");
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            let uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgIdVal}`, {
+                method: 'POST',
+                headers: authHeader,
+                body: formData
+            });
+
+            if (uploadRes.status === 404) {
+                uploadRes = await fetch(`/media/upload?organization_id=${orgIdVal}`, {
+                    method: 'POST',
+                    headers: authHeader,
+                    body: formData
+                });
+            }
+
+            const uploadData = await uploadRes.json();
+
+            if (!uploadRes.ok) {
+                const errDetail = uploadData.detail || JSON.stringify(uploadData);
+                throw new Error("Media Upload Rejected: " + errDetail);
+            }
+
+            const mId = uploadData.id || uploadData.media_id || (uploadData.data && uploadData.data.id);
+            if (mId) {
+                mediaIds.push(Number(mId));
+            } else if (uploadData.file_url || uploadData.url) {
+                window.directUploadedUrl = uploadData.file_url || uploadData.url;
+            }
+        }
+
+        const fallbackUrl = selectedAiImageUrl || window.directUploadedUrl || null;
+
+        if (mediaIds.length === 0 && !fallbackUrl) {
+            throw new Error("Please upload a file, pick from library, or generate an AI image first.");
+        }
+
+        const payload = {
+            organization_id: Number(orgIdVal),
+            account_ids: selectedIds,
+            title: titleVal,
+            caption: captionVal,
+            media_ids: mediaIds,
+            media_url: fallbackUrl,
+            image_url: fallbackUrl,
+            scheduled_at: scheduledAtUtc,
+            status: postStatus
+        };
+
+        let res = await fetch('/api/v1/posts/create-multi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeader },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.status === 404) {
+            res = await fetch('/posts/create-multi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        const resData = await res.json();
+
+        if (!res.ok) {
+            throw new Error(resData.detail || JSON.stringify(resData));
+        }
+
+        if (postStatus === "scheduled") {
+            if (typeof showToast === 'function') showToast("Post scheduled successfully! ⏰");
+            else alert("Post scheduled successfully! ⏰");
+        } else {
+            if (typeof showToast === 'function') showToast("Published successfully to platform! 🎉");
+            else alert("Published successfully! 🎉");
+        }
+
+        setTimeout(() => { window.location.href = '/posts'; }, 1000);
+
+    } catch (err) {
+        console.error("Submission Exception:", err);
+        alert("Action Failed:\n" + (err.message || err));
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerText = originalBtnText;
+        }
+    }
+}
+
+// "Publish Now" button click handler
+window.forceDirectPublish = function(btnEl) {
+    handlePostSubmission(true, btnEl);
+};
+
+// Form submit ("Schedule / Create" button) handler
 document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('directPublishSubmitBtn');
-    await forceDirectPublish(btn);
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    await handlePostSubmission(false, submitBtn);
 });
 </script>
 {% endblock %}

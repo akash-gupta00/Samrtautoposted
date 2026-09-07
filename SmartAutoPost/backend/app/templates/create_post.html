@@ -19,17 +19,17 @@
         <div style="margin-bottom: 15px;">
             <label style="font-weight: 600; margin-bottom: 6px; display: block;">Post Media (Photo or Reel Video)</label>
             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed var(--border-default); border-radius: 8px; cursor: pointer;" />
-                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid var(--border-default); font-size: 12px; cursor: pointer;">
+                <input type="file" id="postImageFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/webm" onchange="handleDirectUpload(event)" style="display: block; width: 70%; padding: 7px; border: 1px dashed var(--border-subtle); border-radius: 8px; cursor: pointer;" />
+                <button type="button" class="btn ghost small" onclick="openMediaLibraryModal()" style="width: 30%; height: 38px; border: 1px solid var(--border-subtle); font-size: 12px; cursor: pointer;">
                     📁 Media Library
                 </button>
             </div>
             
             <!-- Compact Inline AI Image Generator Bar -->
-            <div style="background: var(--bg-hover); border: 1px dashed var(--border-hover); border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">🎨 AI Image:</span>
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap;">🎨 AI Image:</span>
                 <input type="text" id="aiImageGenPrompt" placeholder="Hindi, Hinglish or English me likhein (e.g. Spider-Man ka image do)..." 
-                       style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-default); border-radius: 6px; outline: none; background: #fff;"
+                       style="flex: 1; padding: 6px 10px; font-size: 12px; border: 1px solid var(--border-subtle); border-radius: 6px; outline: none; background: rgba(15, 23, 42, 0.65);"
                        onkeypress="if(event.key==='Enter'){ event.preventDefault(); generateAIImageInline(); }">
                 <button type="button" id="aiImgGenBtn" onclick="generateAIImageInline()" 
                         style="padding: 6px 12px; font-size: 12px; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
@@ -47,14 +47,14 @@
         </label>
 
         <!-- GMB Action Button -->
-        <div id="gmbSpecialFields" style="display: none; background: var(--success-bg); border: 1px solid var(--success-border); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: var(--success);">
+        <div id="gmbSpecialFields" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #34d399;">
                 📍 Google Business Action Button (Optional)
             </label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div>
-                    <label style="font-size: 12px; color: var(--text-secondary);">Action Type</label>
-                    <select id="gmbCtaType" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-default); font-size: 13px;">
+                    <label style="font-size: 12px; color: var(--text-muted);">Action Type</label>
+                    <select id="gmbCtaType" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-subtle); font-size: 13px;">
                         <option value="">None (Standard Post)</option>
                         <option value="LEARN_MORE">Learn More</option>
                         <option value="BOOK">Book</option>
@@ -64,19 +64,19 @@
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 12px; color: var(--text-secondary);">Button Link URL</label>
-                    <input id="gmbCtaUrl" type="url" placeholder="https://example.com/offer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-default); font-size: 13px;">
+                    <label style="font-size: 12px; color: var(--text-muted);">Button Link URL</label>
+                    <input id="gmbCtaUrl" type="url" placeholder="https://example.com/offer" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-subtle); font-size: 13px;">
                 </div>
             </div>
         </div>
 
         <!-- AI Caption Assistant -->
-        <div style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: var(--brand-400);">
+        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block; color: #818cf8;">
                 🤖 AI Caption / Custom Prompt (Optional)
             </label>
             <div style="display: flex; gap: 8px;">
-                <input id="aiCustomPrompt" type="text" placeholder="e.g. Write a short promotional caption..." style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px;">
+                <input id="aiCustomPrompt" type="text" placeholder="e.g. Write a short promotional caption..." style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 13px;">
                 <button type="button" id="aiMagicBtn" onclick="generateMagicCaption()" class="btn small" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap;">
                     ✨ Generate Caption
                 </button>
@@ -84,11 +84,11 @@
         </div>
 
         <!-- Handle Finder -->
-        <div style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+        <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
             <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">🏷️ Tag/Mention Finder:</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap;">🏷️ Tag/Mention Finder:</span>
                 <input type="text" id="mentionSearchInput" placeholder="Enter name or handle" 
-                       style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border-default); border-radius: 6px; outline: none;"
+                       style="flex: 1; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border-subtle); border-radius: 6px; outline: none;"
                        onkeypress="if(event.key==='Enter'){ event.preventDefault(); searchHandle(); }">
                 <button type="button" onclick="searchHandle()" 
                         style="padding: 6px 14px; font-size: 13px; background: #4f46e5; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; white-space: nowrap;">
@@ -113,7 +113,7 @@
 
         <div class="actions" style="display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 20px;">
             <button class="btn ghost" type="button" onclick="location.href='/posts'">Cancel</button>
-            <button class="btn" id="directPublishSubmitBtn" type="button" style="background:var(--success); color:#fff; font-weight:600; padding: 9px 18px; border-radius: 6px; cursor: pointer;" onclick="forceDirectPublish(this)">
+            <button class="btn" id="directPublishSubmitBtn" type="button" style="background:#10b981; color:#fff; font-weight:600; padding: 9px 18px; border-radius: 6px; cursor: pointer; border:none;" onclick="forceDirectPublish(this)">
                 Publish Now 🚀
             </button>
             <button class="btn primary" type="submit">Schedule / Create</button>
@@ -124,7 +124,7 @@
     <div class="card preview-card">
         <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
             <h2>Live Preview</h2>
-            <span id="previewTag" style="font-size: 11px; background: var(--border-subtle); padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: var(--text-secondary);">PREVIEW</span>
+            <span id="previewTag" style="font-size: 11px; background: rgba(255, 255, 255, 0.08); padding: 2px 8px; border-radius: 9999px; font-weight: 600; color: #818cf8;">PREVIEW</span>
         </div>
         <div class="social-preview">
             <div class="preview-head">
@@ -141,7 +141,7 @@
             <div class="preview-image" id="previewMediaBox" style="min-height: 180px; display: flex; align-items: center; justify-content: center; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative; cursor: pointer;" onclick="openImageZoomModal()" title="Click to enlarge image">
                 <img id="livePreviewImg" src="" alt="Media preview" style="display: none; width: 100%; max-height: 350px; object-fit: cover; transition: transform 0.2s;" />
                 <video id="livePreviewVideo" src="" controls playsinline style="display: none; width: 100%; max-height: 350px; border-radius: 8px;"></video>
-                <span id="previewPlaceholderText" style="color: var(--border-hover);">Media preview (Photo/Reel)</span>
+                <span id="previewPlaceholderText" style="color: var(--text-muted);">Media preview (Photo/Reel)</span>
                 
                 <!-- Hover Zoom Overlay Hint -->
                 <div id="zoomHintOverlay" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 11px; pointer-events: none;">
@@ -151,13 +151,13 @@
 
             <!-- Image Download / Save Actions Bar -->
             <div id="mediaSaveActionToolbar" style="display: none; margin-top: 8px; gap: 8px; justify-content: flex-end;">
-                <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <button type="button" onclick="openImageZoomModal()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     🔍 Zoom
                 </button>
-                <button type="button" onclick="downloadPreviewMedia()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <button type="button" onclick="downloadPreviewMedia()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     ⬇️ Download
                 </button>
-                <button type="button" onclick="savePreviewToLibrary()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; border: 1px solid var(--border-default); cursor: pointer; display: flex; align-items: center; gap: 4px; color: #2563eb;">
+                <button type="button" onclick="savePreviewToLibrary()" class="btn small ghost" style="padding: 4px 10px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #818cf8;">
                     💾 Media Library
                 </button>
             </div>
@@ -175,18 +175,14 @@
     </div>
 </div>
 
-<!-- ========================================== -->
-<!-- FULL SCREEN HD IMAGE ZOOM LIGHTBOX MODAL   -->
-<!-- ========================================== -->
+<!-- Lightbox Modal -->
 <div id="imageZoomModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px); cursor: zoom-out;" onclick="closeImageZoomModal()">
     <div style="position: relative; max-width: 90vw; max-height: 90vh; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
-        <!-- Close Button -->
-        <button type="button" onclick="closeImageZoomModal()" style="position: absolute; top: -40px; right: 0; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+        <button type="button" onclick="closeImageZoomModal()" style="position: absolute; top: -40px; right: 0; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
             &times;
         </button>
-        <img id="modalZoomedImg" src="" alt="Enlarged Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 10px; object-fit: contain; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);" />
+        <img id="modalZoomedImg" src="" alt="Enlarged Preview" style="max-width: 90vw; max-height: 85vh; border-radius: 10px; object-fit: contain;" />
         
-        <!-- Bottom Controls in Zoom Modal -->
         <div style="position: absolute; bottom: -45px; display: flex; gap: 12px;">
             <button type="button" onclick="downloadPreviewMedia()" style="background: #2563eb; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
                 ⬇️ Download HD
@@ -199,11 +195,11 @@
 </div>
 
 <!-- Media Library Modal -->
-<div id="mediaModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
-    <div style="background: #fff; width: 90%; max-width: 600px; border-radius: 12px; padding: 20px; max-height: 80vh; display: flex; flex-direction: column;">
+<div id="mediaModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div class="modal-card" style="width: 90%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0;">Select from Media Library</h3>
-            <button type="button" onclick="closeMediaModal()" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
+            <button type="button" onclick="closeMediaModal()" style="border: none; background: none; font-size: 24px; color: #fff; cursor: pointer;">&times;</button>
         </div>
         <div id="modalMediaGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; padding: 5px;">
             <p style="color: var(--text-muted);">Loading media...</p>
@@ -238,7 +234,6 @@ window.closeImageZoomModal = function() {
     if (modal) modal.style.display = 'none';
 };
 
-// Keyboard ESC to close lightbox
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeImageZoomModal();
 });
@@ -285,8 +280,8 @@ async function loadMultiAccounts() {
 
         if (!window.connectedAccountsData.length) {
             container.innerHTML = `
-                <div style="padding: 10px 14px; border: 1px dashed var(--border-default); border-radius: 8px; font-size: 13px; color: var(--text-muted); background: var(--bg-input);">
-                    No accounts connected. Connect accounts in the <a href="/social-accounts" style="color:#2563eb; text-decoration:underline;">Accounts tab</a> first.
+                <div style="padding: 10px 14px; border: 1px dashed var(--border-subtle); border-radius: 8px; font-size: 13px; color: var(--text-muted); background: rgba(255, 255, 255, 0.02);">
+                    No accounts connected. Connect accounts in the <a href="/social-accounts" style="color:#818cf8; text-decoration:underline;">Accounts tab</a> first.
                 </div>
             `;
             return;
@@ -294,8 +289,8 @@ async function loadMultiAccounts() {
 
         let html = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label style="font-weight: 600; font-size: 13px; color: var(--text-secondary); margin: 0;">Target Platforms (${window.connectedAccountsData.length} connected)</label>
-                <button type="button" class="btn small ghost" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-default);" onclick="toggleSelectAllAccounts()">
+                <label style="font-weight: 600; font-size: 13px; color: var(--text-muted); margin: 0;">Target Platforms (${window.connectedAccountsData.length} connected)</label>
+                <button type="button" class="btn small ghost" style="padding: 2px 8px; font-size: 11px; cursor: pointer;" onclick="toggleSelectAllAccounts()">
                     Select / Deselect All
                 </button>
             </div>
@@ -306,10 +301,10 @@ async function loadMultiAccounts() {
             const provider = (acc.provider || 'ACCOUNT').toUpperCase();
             const label = acc.account_name || acc.username || 'Channel';
             html += `
-                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; background: var(--bg-input); user-select: none;">
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; cursor: pointer; background: rgba(15, 23, 42, 0.6); user-select: none;">
                     <input type="checkbox" value="${acc.id}" data-provider="${(acc.provider || '').toLowerCase()}" class="social-acc-cb" checked onchange="checkGmbVisibility()" style="cursor: pointer;" />
-                    <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: var(--bg-hover); color: var(--text-secondary);">${provider}</span>
-                    <span style="font-size: 13px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
+                    <span style="font-weight: 700; font-size: 10px; padding: 2px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: #cbd5e1;">${provider}</span>
+                    <span style="font-size: 13px; font-weight: 500; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${label}</span>
                 </label>
             `;
         });
@@ -323,9 +318,7 @@ async function loadMultiAccounts() {
     }
 }
 
-// ==========================================
-// INLINE AI IMAGE GENERATOR
-// ==========================================
+// Inline AI Generator
 window.generateAIImageInline = async function() {
     const promptInput = document.getElementById('aiImageGenPrompt');
     const btn = document.getElementById('aiImgGenBtn');
@@ -361,9 +354,7 @@ window.generateAIImageInline = async function() {
         }
 
         const data = await res.json();
-        if (!res.ok) {
-            throw new Error(data.detail || "Generation failed");
-        }
+        if (!res.ok) throw new Error(data.detail || "Generation failed");
 
         if (data.image_url) {
             if (data.id) document.getElementById('selectedMediaId').value = data.id;
@@ -382,9 +373,6 @@ window.generateAIImageInline = async function() {
     }
 };
 
-// ==========================================
-// DOWNLOAD & SAVE MEDIA ACTIONS
-// ==========================================
 window.downloadPreviewMedia = async function() {
     if (!window.currentActiveMediaSrc) {
         alert("No media to download!");
@@ -417,9 +405,7 @@ window.savePreviewToLibrary = function() {
     }
 };
 
-// ==========================================
 // DIRECT FAIL-PROOF PUBLISHER
-// ==========================================
 async function forceDirectPublish(btnEl) {
     const checkboxes = Array.from(document.querySelectorAll('#socialAccountsContainer input[type="checkbox"]:checked'));
     const selectedIds = checkboxes
@@ -431,20 +417,20 @@ async function forceDirectPublish(btnEl) {
         return;
     }
 
-    const orgIdVal = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
+    let orgIdVal = typeof orgId === 'function' ? orgId() : Number(localStorage.getItem('organization_id') || 0);
     if (!orgIdVal) {
         alert("Organization not selected!");
         return;
     }
 
-    const titleVal = document.getElementById('postTitle')?.value.trim() || 'Google Post';
+    const titleVal = document.getElementById('postTitle')?.value.trim() || 'Social Post';
     const captionVal = document.getElementById('postCaption')?.value.trim() || '';
     const fileInput = document.getElementById('postImageFile');
     const selectedMediaId = document.getElementById('selectedMediaId')?.value;
     const selectedAiImageUrl = document.getElementById('selectedAiImageUrl')?.value;
 
     const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     const originalBtnText = btnEl ? btnEl.innerText : "Publish Now 🚀";
     if (btnEl) {
@@ -454,57 +440,73 @@ async function forceDirectPublish(btnEl) {
 
     try {
         let mediaIds = [];
+
+        // 1. Agar AI ya Media library se pehle se ID hai
         if (selectedMediaId) {
             mediaIds.push(Number(selectedMediaId));
-        } else if (fileInput && fileInput.files && fileInput.files[0]) {
+        } 
+        // 2. Agar local file upload ki hai
+        else if (fileInput && fileInput.files && fileInput.files[0]) {
             if (typeof showToast === 'function') showToast("Uploading media file...");
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
-            
+
+            // Query parameter hata kar safe direct post:
             let uploadRes = await fetch(`/api/v1/media/upload?organization_id=${orgIdVal}`, {
                 method: 'POST',
-                headers: headers,
+                headers: authHeader,
                 body: formData
             });
 
             if (uploadRes.status === 404) {
                 uploadRes = await fetch(`/media/upload?organization_id=${orgIdVal}`, {
                     method: 'POST',
-                    headers: headers,
+                    headers: authHeader,
                     body: formData
                 });
             }
 
             const uploadData = await uploadRes.json();
-            if (uploadData && uploadData.id) {
-                mediaIds.push(uploadData.id);
+
+            if (!uploadRes.ok) {
+                const errDetail = uploadData.detail || JSON.stringify(uploadData);
+                throw new Error("Media Upload Rejected (400): " + errDetail);
+            }
+
+            const mId = uploadData.id || uploadData.media_id || (uploadData.data && uploadData.data.id);
+            if (mId) {
+                mediaIds.push(Number(mId));
+            } else if (uploadData.file_url || uploadData.url) {
+                window.directUploadedUrl = uploadData.file_url || uploadData.url;
             }
         }
 
-        if (mediaIds.length === 0 && !selectedAiImageUrl) {
+        const fallbackUrl = selectedAiImageUrl || window.directUploadedUrl || null;
+
+        if (mediaIds.length === 0 && !fallbackUrl) {
             throw new Error("Please upload a file, pick from library, or generate an AI image first.");
         }
 
         const payload = {
-            organization_id: orgIdVal,
+            organization_id: Number(orgIdVal),
             account_ids: selectedIds,
             title: titleVal,
             caption: captionVal,
             media_ids: mediaIds,
-            image_url: selectedAiImageUrl || null,
+            image_url: fallbackUrl,
             scheduled_at: null
         };
 
         let res = await fetch('/api/v1/posts/create-multi', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...headers },
+            headers: { 'Content-Type': 'application/json', ...authHeader },
             body: JSON.stringify(payload)
         });
 
         if (res.status === 404) {
             res = await fetch('/posts/create-multi', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...headers },
+                headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify(payload)
             });
         }
@@ -516,7 +518,7 @@ async function forceDirectPublish(btnEl) {
         }
 
         if (typeof showToast === 'function') {
-            showToast("Published successfully to selected platform! 🎉");
+            showToast("Published successfully to platform! 🎉");
         } else {
             alert("Published successfully! 🎉");
         }
@@ -525,7 +527,7 @@ async function forceDirectPublish(btnEl) {
 
     } catch (err) {
         console.error("Publish Exception:", err);
-        alert("Publishing Error: " + (err.message || err));
+        alert("Publishing Error:\n" + (err.message || err));
         if (btnEl) {
             btnEl.disabled = false;
             btnEl.innerText = originalBtnText;
@@ -562,13 +564,10 @@ window.searchHandle = async function() {
 
                 const chip = document.createElement('button');
                 chip.type = 'button';
-                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: 20px; padding: 4px 10px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;';
-                
-                chip.onmouseover = () => chip.style.background = 'var(--bg-hover)';
-                chip.onmouseout = () => chip.style.background = 'var(--bg-input)';
+                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border-subtle); border-radius: 20px; padding: 4px 10px; cursor: pointer;';
 
                 chip.innerHTML = `
-                    ${avatar ? `<img src="${avatar}" referrerpolicy="no-referrer" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">` : `<span style="font-size: 10px; background: var(--border-subtle); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">👤</span>`}
+                    ${avatar ? `<img src="${avatar}" referrerpolicy="no-referrer" style="width: 18px; height: 18px; border-radius: 50%; object-fit: cover;">` : `<span style="font-size: 10px; background: rgba(255,255,255,0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">👤</span>`}
                     <span><b>${displayName}</b> (${handleStr})</span>
                 `;
 
@@ -618,8 +617,8 @@ function updateMediaPreview(src, isVideo = false) {
         }
         if (previewTag) {
             previewTag.innerText = 'REEL / VIDEO';
-            previewTag.style.background = 'var(--grad-brand-soft)';
-            previewTag.style.color = 'var(--violet-500)';
+            previewTag.style.background = 'rgba(139, 92, 246, 0.15)';
+            previewTag.style.color = '#c084fc';
         }
     } else {
         if (zoomHint) zoomHint.style.display = 'block';
@@ -633,8 +632,8 @@ function updateMediaPreview(src, isVideo = false) {
         }
         if (previewTag) {
             previewTag.innerText = 'PHOTO';
-            previewTag.style.background = 'var(--info-bg)';
-            previewTag.style.color = 'var(--info)';
+            previewTag.style.background = 'rgba(59, 130, 246, 0.15)';
+            previewTag.style.color = '#60a5fa';
         }
     }
 }
@@ -786,7 +785,6 @@ window.generateMagicCaption = async function() {
     }
 };
 
-// Form Schedule Event
 document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('directPublishSubmitBtn');

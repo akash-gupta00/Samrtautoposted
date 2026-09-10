@@ -88,19 +88,43 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function getOrgId() {
-    return typeof orgId === 'function' ? orgId() : (localStorage.getItem('organization_id') || 1);
+    let org = null;
+    try {
+        if (typeof orgId === 'function') org = orgId();
+    } catch(e) {}
+    if (!org) {
+        org = localStorage.getItem('organization_id') || localStorage.getItem('current_org_id') || 1;
+    }
+    return Number(org) || 1;
 }
 
 function connectOAuth(platform) {
     const org = getOrgId();
-    if (!org) {
-        if (typeof showToast === 'function') showToast('Please select an organization first', true);
-        else alert('Please select an organization first');
-        return;
-    }
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+    
+    // Auth token aur org_id sath bhejein taaki backend session break na kare
+    const targetUrl = `/api/v1/auth/${platform}/login?organization_id=${org}&auth_token=${encodeURIComponent(token)}`;
+    
+    // Nayi window/popup me open karein taaki main dashboard logout na ho
+    const width = 600, height = 700;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+    
+    const popup = window.open(
+        targetUrl, 
+        `Connect_${platform}`, 
+        `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes`
+    );
 
-    // Har platform ke sath organization_id query parameter bhejna zaroori hai
-    window.location.href = `/api/v1/auth/${platform}/login?organization_id=${org}`;
+    // Jab popup window close ho, page refresh karke naya account load kar lein
+    const checkTimer = setInterval(() => {
+        if (!popup || popup.closed) {
+            clearInterval(checkTimer);
+            setTimeout(() => {
+                loadActiveAccounts();
+            }, 1500);
+        }
+    }, 1000);
 }
 
 async function loadActiveAccounts() {
@@ -117,7 +141,7 @@ async function loadActiveAccounts() {
             res = await fetch(`/social-accounts/?organization_id=${org}`, { headers });
         }
         const data = await res.json();
-        const accounts = Array.isArray(data) ? data : (data.items || []);
+        const accounts = Array.isArray(data) ? data : (data.items || data.accounts || []);
 
         if (accounts.length === 0) {
             grid.innerHTML = '<p class="muted">No social accounts connected yet.</p>';
@@ -128,13 +152,13 @@ async function loadActiveAccounts() {
             const provider = (acc.provider || 'Channel').toUpperCase();
             const name = acc.account_name || acc.username || 'Connected Profile';
             return `
-                <div class="card" style="padding: 16px; border-radius: 10px; border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+                <div class="card" style="padding: 16px; border-radius: 10px; border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
                     <div>
                         <span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: #818cf8;">${provider}</span>
                         <h4 style="margin: 6px 0 0 0; font-size: 14px;">${name}</h4>
                         <small class="muted" style="font-size: 11px;">ID: ${acc.id}</small>
                     </div>
-                    <button type="button" class="btn small ghost" onclick="disconnectAccount(${acc.id})" style="color: #ef4444; border-color: rgba(239,68,68,0.3); font-size: 12px; cursor: pointer;">
+                    <button type="button" class="btn small ghost" onclick="disconnectAccount(${acc.id})" style="color: #ef4444; border-color: rgba(239,68,68,0.3); font-size: 12px; cursor: pointer; padding: 4px 10px; border-radius: 6px;">
                         Disconnect
                     </button>
                 </div>
